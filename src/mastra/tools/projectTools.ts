@@ -20,6 +20,7 @@ export const listProjectFilesTool = createTool({
     maxDepth: z.number().int().min(0).max(8).optional().default(2),
   }),
   outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("listProjectFiles", output),
   execute: async ({ maxDepth, path }, context) => {
     return agentToolsFetch({
       context: context ?? {},
@@ -37,6 +38,7 @@ export const readProjectFileTool = createTool({
     path: z.string().min(1),
   }),
   outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("readProjectFile", output),
   execute: async ({ path }, context) => {
     return agentToolsFetch({
       context: context ?? {},
@@ -54,6 +56,7 @@ export const getProjectAppLogsTool = createTool({
     tail: z.number().int().min(1).max(1000).optional().default(200),
   }),
   outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("getProjectAppLogs", output),
   execute: async ({ tail }, context) => {
     return agentToolsFetch({
       context: context ?? {},
@@ -158,4 +161,57 @@ function summarizeBody(body: unknown) {
   }
 
   return JSON.stringify(body).slice(0, 300);
+}
+
+function formatAgentToolsResult(toolName: string, result: unknown) {
+  if (toolName === "listProjectFiles" && isFileTreeResult(result)) {
+    return [
+      `Files (${result.entries.length}):`,
+      ...result.entries.map((entry) => {
+        const suffix = entry.type === "dir" ? "/" : "";
+        return `- ${entry.path}${suffix}`;
+      }),
+    ].join("\n");
+  }
+
+  if (toolName === "readProjectFile" && isReadFileResult(result)) {
+    return [`${result.path}:`, "```", result.content, "```"].join("\n");
+  }
+
+  if (toolName === "getProjectAppLogs" && isObjectRecord(result)) {
+    const logs = result.logs ?? result.content ?? result.stdout;
+
+    if (typeof logs === "string") {
+      return logs.trim() || "No application logs returned.";
+    }
+  }
+
+  return JSON.stringify(result, null, 2);
+}
+
+function isFileTreeResult(result: unknown): result is {
+  entries: Array<{ path: string; type: "file" | "dir" }>;
+} {
+  return (
+    isObjectRecord(result) &&
+    Array.isArray(result.entries) &&
+    result.entries.every(
+      (entry) =>
+        isObjectRecord(entry) &&
+        typeof entry.path === "string" &&
+        (entry.type === "file" || entry.type === "dir"),
+    )
+  );
+}
+
+function isReadFileResult(result: unknown): result is { path: string; content: string } {
+  return (
+    isObjectRecord(result) &&
+    typeof result.path === "string" &&
+    typeof result.content === "string"
+  );
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

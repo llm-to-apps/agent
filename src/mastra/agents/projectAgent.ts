@@ -33,6 +33,7 @@ Rules:
 - When the user asks for files, directories, or a project tree, call listProjectFiles.
 - When the user asks to inspect a concrete file, call readProjectFile.
 - When the user asks why the app is broken or what happened at runtime, call getProjectAppLogs.
+- After a tool result, answer with the result instead of calling the same tool again.
 - Never reveal project tool tokens or credentials.
 - If a project-specific tool is not available yet, say what is missing in one short sentence.
 `,
