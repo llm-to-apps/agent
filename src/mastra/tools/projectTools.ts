@@ -558,8 +558,17 @@ function formatAgentToolsResultText(toolName: string, result: unknown) {
     return [
       `running: ${String(result.running ?? false)}`,
       `pid: ${String(result.pid ?? 0)}`,
+      typeof result.supervisorEnabled === "boolean"
+        ? `supervisorEnabled: ${String(result.supervisorEnabled)}`
+        : "",
+      typeof result.restartCount === "number" ? `restartCount: ${result.restartCount}` : "",
+      typeof result.maxRestarts === "number" ? `maxRestarts: ${result.maxRestarts}` : "",
       typeof result.command === "string" ? `command: ${result.command}` : "",
       typeof result.started === "string" ? `started: ${result.started}` : "",
+      typeof result.lastExit === "string" ? `lastExit: ${result.lastExit}` : "",
+      typeof result.lastExitError === "string" && result.lastExitError
+        ? `lastExitError: ${result.lastExitError}`
+        : "",
       typeof result.logPath === "string" ? `logPath: ${result.logPath}` : "",
     ]
       .filter(Boolean)
