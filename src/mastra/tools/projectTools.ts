@@ -20,9 +20,9 @@ export const listProjectFilesTool = createTool({
     maxDepth: z.number().int().min(0).max(8).optional().default(2),
   }),
   outputSchema: z.any(),
-  execute: async ({ context, maxDepth, path }) => {
+  execute: async ({ maxDepth, path }, context) => {
     return agentToolsFetch({
-      context,
+      context: context ?? {},
       path: "/files/tree",
       query: { path, maxDepth },
     });
@@ -37,9 +37,9 @@ export const readProjectFileTool = createTool({
     path: z.string().min(1),
   }),
   outputSchema: z.any(),
-  execute: async ({ context, path }) => {
+  execute: async ({ path }, context) => {
     return agentToolsFetch({
-      context,
+      context: context ?? {},
       path: "/files/read",
       query: { path },
     });
@@ -54,9 +54,9 @@ export const getProjectAppLogsTool = createTool({
     tail: z.number().int().min(1).max(1000).optional().default(200),
   }),
   outputSchema: z.any(),
-  execute: async ({ context, tail }) => {
+  execute: async ({ tail }, context) => {
     return agentToolsFetch({
-      context,
+      context: context ?? {},
       path: "/app/logs",
       query: { tail },
     });
