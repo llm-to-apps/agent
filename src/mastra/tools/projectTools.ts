@@ -216,7 +216,7 @@ export const patchProjectFilesTool = createTool({
 export const runProjectCommandTool = createTool({
   id: "runProjectCommand",
   description:
-    "Run a verification or user-requested shell command in the current project container. Do not use this for source search; use searchProjectFiles instead.",
+    "Run a verification or user-requested shell command in the current project container. Do not use this for source search; use searchProjectFiles instead. Omit cwd or use a relative cwd such as '.'. Absolute cwd values are rejected by agent-tools.",
   inputSchema: z.object({
     command: z.string().min(1),
     cwd: z.string().optional().default("."),

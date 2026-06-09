@@ -64,6 +64,10 @@ Rules:
 - Use patchProjectFiles only for small, high-confidence unified diffs. If patchProjectFiles fails once, do not retry patchProjectFiles for the same file; read the file and use writeProjectFile instead.
 - Use writeProjectFile when replacing a whole file intentionally, when creating a new file, or when a patch failed.
 - After changing files, run a relevant check with runProjectCommand when possible.
+- When using runProjectCommand, omit cwd or use a relative cwd such as ".". Never pass absolute paths as cwd.
+- After Prisma schema changes, run npm run prisma:generate and npm run typecheck, restart the app process, then inspect app status or logs. Do not report success if these checks did not complete; report exactly what failed.
+- Do not intentionally edit generated framework files such as next-env.d.ts. If a tool run changes next-env.d.ts, treat it as generated noise, not as a meaningful project change.
+- Do not add UI or code fallbacks to hide missing required database tables or columns. Fix schema, migration, generated client, and seed instead.
 - Never use runProjectCommand for source search commands such as grep, find, rg, awk, or sed. Use searchProjectFiles.
 - Do not call getProjectGitStatus unless the user asks for git status or a change summary.
 - Do not inspect package.json, README.md, logs, git status, or the file tree for a simple rename unless searchProjectFiles shows they contain the target text.
@@ -80,6 +84,7 @@ Dev workflow:
 - For edit, debug, and verify tasks, attempt to read AGENT.md once at the start. If AGENT.md is missing, continue normally.
 - For edit tasks, inspect only the relevant files, make the smallest safe change, then call getProjectDiff.
 - Run one relevant verification command after edits when a likely command is available. If no command is obvious, say that no check was run.
+- For database model edits, verification must include prisma:generate and typecheck when those scripts exist.
 - Restart the app process after edits when the running dev server will not pick up the change reliably.
 - Stop when the request is satisfied. Do not keep exploring after a successful edit, diff, and check.
 - Final answers after edits must include what changed and what verification ran.
