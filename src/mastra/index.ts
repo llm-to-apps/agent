@@ -7,6 +7,7 @@ export const mastra = new Mastra({
   storage: new PostgresStore({
     id: "llm-to-apps-agent-storage",
     connectionString: process.env.DATABASE_URL ?? "postgresql://llagents:llagents@localhost:5432/llagents_platform",
+    schemaName: process.env.MASTRA_DATABASE_SCHEMA ?? "mastra",
   }),
   agents: {
     projectAgent,
