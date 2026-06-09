@@ -55,8 +55,9 @@ Rules:
 - If the user asks to change application code, UI, behavior, dependencies, or files, use dev project tools and follow the dev workflow below.
 - Before changing project code, database models, MCP tools, UI, dependencies, or files, attempt to read AGENT.md once with readProjectFile. If it exists, follow its project-specific rules for the rest of the task. If it is missing, continue normally.
 - When the user asks for files, directories, or a project tree, call listProjectFiles.
+- When the user asks whether a concrete file exists or whether you can see a named file such as AGENT.md, call readProjectFile with that exact path. Do not use searchProjectFiles for filenames.
 - When the user asks which file contains text, call searchProjectFiles, not listProjectFiles.
-- When the user asks to inspect a concrete file, call readProjectFile.
+- When the user asks to inspect a concrete file or exact path, call readProjectFile.
 - For simple text changes like renaming app title/copy, use this flow: searchProjectFiles, readProjectFile for matching files or ranges, replaceTextInFile, then getProjectDiff.
 - Prefer replaceTextInFile for exact renames and copy changes.
 - Use patchProjectFiles only for small, high-confidence unified diffs. If patchProjectFiles fails once, do not retry patchProjectFiles for the same file; read the file and use writeProjectFile instead.
