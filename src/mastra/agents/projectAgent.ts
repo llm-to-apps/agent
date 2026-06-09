@@ -6,12 +6,14 @@ import {
   callAppMcpToolTool,
   getProjectGitStatusTool,
   getProjectAppLogsTool,
+  getProjectAppStatusTool,
   getProjectDiffTool,
   listAppMcpToolsTool,
   listProjectFilesTool,
   patchProjectFilesTool,
   readProjectFileTool,
   replaceTextInFileTool,
+  restartProjectAppTool,
   runProjectCommandTool,
   searchProjectFilesTool,
   writeProjectFileTool,
@@ -62,6 +64,8 @@ Rules:
 - Do not call getProjectGitStatus unless the user asks for git status or a change summary.
 - Do not inspect package.json, README.md, logs, git status, or the file tree for a simple rename unless searchProjectFiles shows they contain the target text.
 - When the user asks why the app is broken or what happened at runtime, call getProjectAppLogs.
+- When the user asks whether the app is running, call getProjectAppStatus.
+- After code changes that need the dev server to reload, call restartProjectApp, then getProjectAppStatus or getProjectAppLogs.
 - After a tool result, answer with the result instead of calling the same tool again.
 - Never reveal project tool tokens or credentials.
 - If a project-specific tool is not available yet, say what is missing in one short sentence.
@@ -70,6 +74,7 @@ Dev workflow:
 - Classify the task before acting: inspect, edit, debug, verify, or explain.
 - For edit tasks, inspect only the relevant files, make the smallest safe change, then call getProjectDiff.
 - Run one relevant verification command after edits when a likely command is available. If no command is obvious, say that no check was run.
+- Restart the app process after edits when the running dev server will not pick up the change reliably.
 - Stop when the request is satisfied. Do not keep exploring after a successful edit, diff, and check.
 - Final answers after edits must include what changed and what verification ran.
 `,
@@ -81,10 +86,12 @@ Dev workflow:
     listProjectFiles: listProjectFilesTool,
     readProjectFile: readProjectFileTool,
     getProjectAppLogs: getProjectAppLogsTool,
+    getProjectAppStatus: getProjectAppStatusTool,
     searchProjectFiles: searchProjectFilesTool,
     replaceTextInFile: replaceTextInFileTool,
     writeProjectFile: writeProjectFileTool,
     patchProjectFiles: patchProjectFilesTool,
+    restartProjectApp: restartProjectAppTool,
     runProjectCommand: runProjectCommandTool,
     getProjectDiff: getProjectDiffTool,
     getProjectGitStatus: getProjectGitStatusTool,

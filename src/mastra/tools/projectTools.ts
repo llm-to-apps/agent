@@ -77,6 +77,37 @@ export const getProjectAppLogsTool = createTool({
   },
 });
 
+export const getProjectAppStatusTool = createTool({
+  id: "getProjectAppStatus",
+  description:
+    "Return the supervised application process status from the current project's agent-tools endpoint.",
+  inputSchema: z.object({}),
+  outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("getProjectAppStatus", output),
+  execute: async (_input, context) => {
+    return agentToolsFetch({
+      context: context ?? {},
+      path: "/app/status",
+    });
+  },
+});
+
+export const restartProjectAppTool = createTool({
+  id: "restartProjectApp",
+  description:
+    "Restart the supervised application process in the current project container. Use this after code or dependency changes when the dev server needs to reload.",
+  inputSchema: z.object({}),
+  outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("restartProjectApp", output),
+  execute: async (_input, context) => {
+    return agentToolsFetch({
+      method: "POST",
+      context: context ?? {},
+      path: "/app/restart",
+    });
+  },
+});
+
 export const searchProjectFilesTool = createTool({
   id: "searchProjectFiles",
   description:
@@ -518,6 +549,21 @@ function formatAgentToolsResultText(toolName: string, result: unknown) {
     if (typeof logs === "string") {
       return logs.trim() || "No application logs returned.";
     }
+  }
+
+  if (
+    (toolName === "getProjectAppStatus" || toolName === "restartProjectApp") &&
+    isObjectRecord(result)
+  ) {
+    return [
+      `running: ${String(result.running ?? false)}`,
+      `pid: ${String(result.pid ?? 0)}`,
+      typeof result.command === "string" ? `command: ${result.command}` : "",
+      typeof result.started === "string" ? `started: ${result.started}` : "",
+      typeof result.logPath === "string" ? `logPath: ${result.logPath}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
   }
 
   if (toolName === "searchProjectFiles" && isCommandResult(result)) {
