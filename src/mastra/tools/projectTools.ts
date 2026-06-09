@@ -6,8 +6,11 @@ type ToolExecutionContext = {
 };
 
 type AgentToolsFetchOptions = {
+  method?: "GET" | "POST";
   path: string;
   query?: Record<string, string | number | undefined>;
+  requestBody?: unknown;
+  okStatuses?: number[];
   context: ToolExecutionContext;
 };
 
@@ -66,7 +69,133 @@ export const getProjectAppLogsTool = createTool({
   },
 });
 
-async function agentToolsFetch({ context, path, query }: AgentToolsFetchOptions) {
+export const searchProjectFilesTool = createTool({
+  id: "searchProjectFiles",
+  description:
+    "Search file contents in the current project through the project's agent-tools endpoint.",
+  inputSchema: z.object({
+    query: z.string().min(1),
+    path: z.string().optional().default("."),
+  }),
+  outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("searchProjectFiles", output),
+  execute: async ({ path, query }, context) => {
+    return agentToolsFetch({
+      method: "POST",
+      context: context ?? {},
+      path: "/shell/run",
+      okStatuses: [200, 400],
+      requestBody: {
+        command: "sh",
+        args: [
+          "-lc",
+          [
+            'find "$SEARCH_PATH" -type f',
+            '! -path "*/.git/*"',
+            '! -path "*/node_modules/*"',
+            '! -path "*/.next/*"',
+            '! -path "*/dist/*"',
+            '! -path "*/build/*"',
+            '-print0',
+            '| xargs -0 grep -n -F "$SEARCH_QUERY"',
+            "| head -n 200",
+          ].join(" "),
+        ],
+        env: {
+          SEARCH_PATH: path,
+          SEARCH_QUERY: query,
+        },
+        timeoutSeconds: 60,
+      },
+    });
+  },
+});
+
+export const writeProjectFileTool = createTool({
+  id: "writeProjectFile",
+  description:
+    "Write a complete file in the current project through the project's agent-tools endpoint.",
+  inputSchema: z.object({
+    path: z.string().min(1),
+    content: z.string(),
+    append: z.boolean().optional().default(false),
+  }),
+  outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("writeProjectFile", output),
+  execute: async ({ append, content, path }, context) => {
+    return agentToolsFetch({
+      method: "POST",
+      context: context ?? {},
+      path: "/files/write",
+      requestBody: { path, content, append },
+    });
+  },
+});
+
+export const patchProjectFilesTool = createTool({
+  id: "patchProjectFiles",
+  description:
+    "Apply a unified diff patch to files in the current project through the project's agent-tools endpoint.",
+  inputSchema: z.object({
+    patch: z.string().min(1),
+  }),
+  outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("patchProjectFiles", output),
+  execute: async ({ patch }, context) => {
+    return agentToolsFetch({
+      method: "POST",
+      context: context ?? {},
+      path: "/files/patch",
+      requestBody: { patch },
+    });
+  },
+});
+
+export const runProjectCommandTool = createTool({
+  id: "runProjectCommand",
+  description:
+    "Run a shell command in the current project container through the project's agent-tools endpoint.",
+  inputSchema: z.object({
+    command: z.string().min(1),
+    cwd: z.string().optional().default("."),
+    timeoutSeconds: z.number().int().min(1).max(300).optional().default(60),
+  }),
+  outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("runProjectCommand", output),
+  execute: async ({ command, cwd, timeoutSeconds }, context) => {
+    return agentToolsFetch({
+      method: "POST",
+      context: context ?? {},
+      path: "/shell/run",
+      okStatuses: [200, 400],
+      requestBody: { command, cwd, timeoutSeconds },
+    });
+  },
+});
+
+export const getProjectGitStatusTool = createTool({
+  id: "getProjectGitStatus",
+  description:
+    "Return git status for the current project through the project's agent-tools endpoint.",
+  inputSchema: z.object({}),
+  outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("getProjectGitStatus", output),
+  execute: async (_input, context) => {
+    return agentToolsFetch({
+      context: context ?? {},
+      path: "/git/status",
+    });
+  },
+});
+
+async function agentToolsFetch({
+  context,
+  method = "GET",
+  okStatuses,
+  path,
+  query,
+  requestBody,
+}: AgentToolsFetchOptions) {
   const startedAt = Date.now();
   const toolsUrl = readRequestContextValue(context, "toolsUrl");
   const token = readRequestContextValue(context, "agentToolsToken");
@@ -88,20 +217,22 @@ async function agentToolsFetch({ context, path, query }: AgentToolsFetchOptions)
 
   console.info("[project-agent] agent-tools request", {
     projectId,
+    method,
     path,
     hasToken,
     query,
   });
 
   const response = await fetch(url, {
-    headers: hasToken
-      ? {
-          Authorization: `Bearer ${token}`,
-        }
-      : undefined,
+    method,
+    headers: {
+      ...(hasToken ? { Authorization: `Bearer ${token}` } : {}),
+      ...(requestBody === undefined ? {} : { "Content-Type": "application/json" }),
+    },
+    body: requestBody === undefined ? undefined : JSON.stringify(requestBody),
   });
   const rawBody = await response.text();
-  const body = parseJson(rawBody);
+  const responseBody = parseJson(rawBody);
   const durationMs = Date.now() - startedAt;
 
   console.info("[project-agent] agent-tools response", {
@@ -112,13 +243,15 @@ async function agentToolsFetch({ context, path, query }: AgentToolsFetchOptions)
     durationMs,
   });
 
-  if (!response.ok) {
+  const isExpectedStatus = response.ok || okStatuses?.includes(response.status);
+
+  if (!isExpectedStatus) {
     throw new Error(
-      `Project tools request failed with ${response.status}: ${summarizeBody(body)}`,
+      `Project tools request failed with ${response.status}: ${summarizeBody(responseBody)}`,
     );
   }
 
-  return body;
+  return responseBody;
 }
 
 function readRequestContextValue(context: ToolExecutionContext, key: string) {
@@ -186,6 +319,34 @@ function formatAgentToolsResult(toolName: string, result: unknown) {
     }
   }
 
+  if (toolName === "searchProjectFiles" && isCommandResult(result)) {
+    if (result.exitCode === 1 || !result.stdout.trim()) {
+      return "No matches found.";
+    }
+
+    return result.stdout.trim();
+  }
+
+  if (
+    (toolName === "runProjectCommand" ||
+      toolName === "patchProjectFiles" ||
+      toolName === "getProjectGitStatus") &&
+    isCommandResult(result)
+  ) {
+    return [
+      `Command: ${result.command}`,
+      `Exit code: ${result.exitCode}`,
+      result.stdout.trim() ? `stdout:\n${result.stdout.trim()}` : "",
+      result.stderr.trim() ? `stderr:\n${result.stderr.trim()}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  if (toolName === "writeProjectFile" && isObjectRecord(result) && typeof result.path === "string") {
+    return `Wrote ${result.path}.`;
+  }
+
   return JSON.stringify(result, null, 2);
 }
 
@@ -214,4 +375,19 @@ function isReadFileResult(result: unknown): result is { path: string; content: s
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isCommandResult(result: unknown): result is {
+  command: string;
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+} {
+  return (
+    isObjectRecord(result) &&
+    typeof result.command === "string" &&
+    typeof result.exitCode === "number" &&
+    typeof result.stdout === "string" &&
+    typeof result.stderr === "string"
+  );
 }

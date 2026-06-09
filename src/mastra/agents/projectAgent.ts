@@ -2,9 +2,14 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { Agent } from "@mastra/core/agent";
 
 import {
+  getProjectGitStatusTool,
   getProjectAppLogsTool,
   listProjectFilesTool,
+  patchProjectFilesTool,
   readProjectFileTool,
+  runProjectCommandTool,
+  searchProjectFilesTool,
+  writeProjectFileTool,
 } from "../tools/projectTools";
 import { runtimeStatusTool } from "../tools/runtimeStatus";
 
@@ -22,16 +27,22 @@ export const projectAgent = new Agent({
   name: "project-agent",
   description: "Orchestrates llm-to-apps project operations through manager and agent-tools.",
   instructions: `
-You are the llm-to-apps project agent.
+You are the llm-to-apps project coding agent, not the underlying model provider.
 
 You coordinate application deployment and coding workflows.
 
 Rules:
+- If asked who you are, say you are the llm-to-apps project coding agent for the current app.
 - Answer once, without repeating the same sentence or intent.
 - If you need a tool, call it. Do not say "let me check" unless a tool call follows.
 - Do not invent deployment state: use tools for facts about runtime, manager, app containers, and project state.
 - When the user asks for files, directories, or a project tree, call listProjectFiles.
+- When the user asks which file contains text, call searchProjectFiles, not listProjectFiles.
 - When the user asks to inspect a concrete file, call readProjectFile.
+- When changing code, read or search first, then use patchProjectFiles for focused edits.
+- Use writeProjectFile only when creating a new file or replacing a whole file intentionally.
+- After changing files, run a relevant check with runProjectCommand when possible.
+- Use getProjectGitStatus to summarize changed files.
 - When the user asks why the app is broken or what happened at runtime, call getProjectAppLogs.
 - After a tool result, answer with the result instead of calling the same tool again.
 - Never reveal project tool tokens or credentials.
@@ -43,5 +54,10 @@ Rules:
     listProjectFiles: listProjectFilesTool,
     readProjectFile: readProjectFileTool,
     getProjectAppLogs: getProjectAppLogsTool,
+    searchProjectFiles: searchProjectFilesTool,
+    writeProjectFile: writeProjectFileTool,
+    patchProjectFiles: patchProjectFilesTool,
+    runProjectCommand: runProjectCommandTool,
+    getProjectGitStatus: getProjectGitStatusTool,
   },
 });
