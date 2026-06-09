@@ -15,9 +15,24 @@ Mastra starts its local API server on port `4111` by default.
 
 Copy `.env.example` to `.env` and set:
 
-- `OPENAI_API_KEY`
+- `OPENROUTER_API_KEY`
 - `AGENT_MODEL`
 - `MANAGER_URL`
+
+Example:
+
+```env
+OPENROUTER_API_KEY=sk-or-v1-...
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_SITE_URL=http://localhost:3000
+OPENROUTER_APP_NAME=LLM to Apps
+AGENT_MODEL=anthropic/claude-sonnet-4
+MANAGER_URL=http://manager:8080
+```
+
+`AGENT_MODEL` accepts OpenRouter model IDs, for example
+`openai/gpt-4o-mini`, `anthropic/claude-sonnet-4`,
+`google/gemini-2.5-pro`, or `qwen/qwen3-coder`.
 
 ## Scripts
 
