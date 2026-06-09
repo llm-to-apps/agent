@@ -1,5 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { Agent } from "@mastra/core/agent";
+import { Memory } from "@mastra/memory";
 
 import {
   callAppMcpToolTool,
@@ -23,6 +24,12 @@ const openrouter = createOpenAI({
   headers: {
     "HTTP-Referer": process.env.OPENROUTER_SITE_URL ?? "http://localhost:3000",
     "X-Title": process.env.OPENROUTER_APP_NAME ?? "LLM to Apps",
+  },
+});
+
+const projectMemory = new Memory({
+  options: {
+    lastMessages: 20,
   },
 });
 
@@ -82,4 +89,5 @@ Dev workflow:
     getProjectDiff: getProjectDiffTool,
     getProjectGitStatus: getProjectGitStatusTool,
   },
+  memory: projectMemory,
 });
