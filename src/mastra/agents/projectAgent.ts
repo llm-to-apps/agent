@@ -4,9 +4,11 @@ import { Agent } from "@mastra/core/agent";
 import {
   getProjectGitStatusTool,
   getProjectAppLogsTool,
+  getProjectDiffTool,
   listProjectFilesTool,
   patchProjectFilesTool,
   readProjectFileTool,
+  replaceTextInFileTool,
   runProjectCommandTool,
   searchProjectFilesTool,
   writeProjectFileTool,
@@ -39,10 +41,12 @@ Rules:
 - When the user asks for files, directories, or a project tree, call listProjectFiles.
 - When the user asks which file contains text, call searchProjectFiles, not listProjectFiles.
 - When the user asks to inspect a concrete file, call readProjectFile.
-- For simple text changes like renaming app title/copy, use this flow: searchProjectFiles, readProjectFile for matching files, writeProjectFile with the full updated file, then one verification command if useful.
+- For simple text changes like renaming app title/copy, use this flow: searchProjectFiles, readProjectFile for matching files or ranges, replaceTextInFile, then getProjectDiff.
+- Prefer replaceTextInFile for exact renames and copy changes.
 - Use patchProjectFiles only for small, high-confidence unified diffs. If patchProjectFiles fails once, do not retry patchProjectFiles for the same file; read the file and use writeProjectFile instead.
 - Use writeProjectFile when replacing a whole file intentionally, when creating a new file, or when a patch failed.
 - After changing files, run a relevant check with runProjectCommand when possible.
+- Never use runProjectCommand for source search commands such as grep, find, rg, awk, or sed. Use searchProjectFiles.
 - Do not call getProjectGitStatus unless the user asks for git status or a change summary.
 - Do not inspect package.json, README.md, logs, git status, or the file tree for a simple rename unless searchProjectFiles shows they contain the target text.
 - When the user asks why the app is broken or what happened at runtime, call getProjectAppLogs.
@@ -57,9 +61,11 @@ Rules:
     readProjectFile: readProjectFileTool,
     getProjectAppLogs: getProjectAppLogsTool,
     searchProjectFiles: searchProjectFilesTool,
+    replaceTextInFile: replaceTextInFileTool,
     writeProjectFile: writeProjectFileTool,
     patchProjectFiles: patchProjectFilesTool,
     runProjectCommand: runProjectCommandTool,
+    getProjectDiff: getProjectDiffTool,
     getProjectGitStatus: getProjectGitStatusTool,
   },
 });

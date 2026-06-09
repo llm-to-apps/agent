@@ -36,17 +36,19 @@ export const listProjectFilesTool = createTool({
 export const readProjectFileTool = createTool({
   id: "readProjectFile",
   description:
-    "Read a file from the current project through the project's agent-tools endpoint.",
+    "Read a file or a line range from the current project through the project's agent-tools endpoint.",
   inputSchema: z.object({
     path: z.string().min(1),
+    startLine: z.coerce.number().int().min(1).optional(),
+    endLine: z.coerce.number().int().min(1).optional(),
   }),
   outputSchema: z.any(),
   toModelOutput: (output) => formatAgentToolsResult("readProjectFile", output),
-  execute: async ({ path }, context) => {
+  execute: async ({ endLine, path, startLine }, context) => {
     return agentToolsFetch({
       context: context ?? {},
       path: "/files/read",
-      query: { path },
+      query: { path, startLine, endLine },
     });
   },
 });
@@ -132,6 +134,28 @@ export const writeProjectFileTool = createTool({
   },
 });
 
+export const replaceTextInFileTool = createTool({
+  id: "replaceTextInFile",
+  description:
+    "Replace exact text in one project file. Prefer this for renames and simple copy changes instead of patchProjectFiles or writeProjectFile.",
+  inputSchema: z.object({
+    path: z.string().min(1),
+    search: z.string().min(1),
+    replace: z.string(),
+    expectedReplacements: z.coerce.number().int().min(1).optional(),
+  }),
+  outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("replaceTextInFile", output),
+  execute: async ({ expectedReplacements, path, replace, search }, context) => {
+    return agentToolsFetch({
+      method: "POST",
+      context: context ?? {},
+      path: "/files/replace-text",
+      requestBody: { path, search, replace, expectedReplacements },
+    });
+  },
+});
+
 export const patchProjectFilesTool = createTool({
   id: "patchProjectFiles",
   description:
@@ -154,7 +178,7 @@ export const patchProjectFilesTool = createTool({
 export const runProjectCommandTool = createTool({
   id: "runProjectCommand",
   description:
-    "Run a shell command in the current project container through the project's agent-tools endpoint.",
+    "Run a verification or user-requested shell command in the current project container. Do not use this for source search; use searchProjectFiles instead.",
   inputSchema: z.object({
     command: z.string().min(1),
     cwd: z.string().optional().default("."),
@@ -184,6 +208,21 @@ export const getProjectGitStatusTool = createTool({
     return agentToolsFetch({
       context: context ?? {},
       path: "/git/status",
+    });
+  },
+});
+
+export const getProjectDiffTool = createTool({
+  id: "getProjectDiff",
+  description:
+    "Return the current git diff for the project after edits. Use this to verify what changed before summarizing.",
+  inputSchema: z.object({}),
+  outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("getProjectDiff", output),
+  execute: async (_input, context) => {
+    return agentToolsFetch({
+      context: context ?? {},
+      path: "/git/diff",
     });
   },
 });
@@ -345,7 +384,11 @@ function formatAgentToolsResultText(toolName: string, result: unknown) {
   }
 
   if (toolName === "readProjectFile" && isReadFileResult(result)) {
-    return [`${result.path}:`, "```", result.content, "```"].join("\n");
+    const range =
+      typeof result.startLine === "number" && typeof result.endLine === "number"
+        ? `:${result.startLine}-${result.endLine}`
+        : "";
+    return [`${result.path}${range}:`, "```", result.content, "```"].join("\n");
   }
 
   if (toolName === "getProjectAppLogs" && isObjectRecord(result)) {
@@ -367,6 +410,7 @@ function formatAgentToolsResultText(toolName: string, result: unknown) {
   if (
     (toolName === "runProjectCommand" ||
       toolName === "patchProjectFiles" ||
+      toolName === "getProjectDiff" ||
       toolName === "getProjectGitStatus") &&
     isCommandResult(result)
   ) {
@@ -382,6 +426,16 @@ function formatAgentToolsResultText(toolName: string, result: unknown) {
 
   if (toolName === "writeProjectFile" && isObjectRecord(result) && typeof result.path === "string") {
     return `Wrote ${result.path}.`;
+  }
+
+  if (
+    toolName === "replaceTextInFile" &&
+    isObjectRecord(result) &&
+    typeof result.path === "string"
+  ) {
+    const replacements =
+      typeof result.replacements === "number" ? ` (${result.replacements} replacements)` : "";
+    return `Updated ${result.path}${replacements}.`;
   }
 
   return JSON.stringify(result, null, 2);
@@ -402,7 +456,12 @@ function isFileTreeResult(result: unknown): result is {
   );
 }
 
-function isReadFileResult(result: unknown): result is { path: string; content: string } {
+function isReadFileResult(result: unknown): result is {
+  path: string;
+  content: string;
+  startLine?: number;
+  endLine?: number;
+} {
   return (
     isObjectRecord(result) &&
     typeof result.path === "string" &&
