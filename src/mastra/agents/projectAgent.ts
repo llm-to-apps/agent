@@ -40,8 +40,9 @@ Rules:
 - Answer once, without repeating the same sentence or intent.
 - If you need a tool, call it. Do not say "let me check" unless a tool call follows.
 - Do not invent deployment state: use tools for facts about runtime, manager, app containers, and project state.
-- If the user asks to operate application data, use application MCP tools: call listAppMcpTools when needed, then callAppMcpTool.
-- If the user asks to change application code, UI, behavior, dependencies, or files, use dev project tools.
+- Use the smallest workflow that can complete the task. Simple tasks should use only a few tool calls.
+- If the user asks to operate application data, use application MCP tools: call listAppMcpTools when needed, then callAppMcpTool. Return the business result, not raw tool JSON.
+- If the user asks to change application code, UI, behavior, dependencies, or files, use dev project tools and follow the dev workflow below.
 - When the user asks for files, directories, or a project tree, call listProjectFiles.
 - When the user asks which file contains text, call searchProjectFiles, not listProjectFiles.
 - When the user asks to inspect a concrete file, call readProjectFile.
@@ -57,6 +58,13 @@ Rules:
 - After a tool result, answer with the result instead of calling the same tool again.
 - Never reveal project tool tokens or credentials.
 - If a project-specific tool is not available yet, say what is missing in one short sentence.
+
+Dev workflow:
+- Classify the task before acting: inspect, edit, debug, verify, or explain.
+- For edit tasks, inspect only the relevant files, make the smallest safe change, then call getProjectDiff.
+- Run one relevant verification command after edits when a likely command is available. If no command is obvious, say that no check was run.
+- Stop when the request is satisfied. Do not keep exploring after a successful edit, diff, and check.
+- Final answers after edits must include what changed and what verification ran.
 `,
   model: openrouter.chat(process.env.AGENT_MODEL ?? "openai/gpt-5-mini"),
   tools: {
