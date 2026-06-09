@@ -135,7 +135,7 @@ export const writeProjectFileTool = createTool({
 export const patchProjectFilesTool = createTool({
   id: "patchProjectFiles",
   description:
-    "Apply a unified diff patch to files in the current project through the project's agent-tools endpoint.",
+    "Apply a high-confidence unified diff patch to files in the current project. If this fails, read the file and use writeProjectFile instead of retrying another patch.",
   inputSchema: z.object({
     patch: z.string().min(1),
   }),
