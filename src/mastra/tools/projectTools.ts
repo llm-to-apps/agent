@@ -20,7 +20,7 @@ export const listProjectFilesTool = createTool({
     "List files and directories in the current project through the project's agent-tools endpoint.",
   inputSchema: z.object({
     path: z.string().optional().default("."),
-    maxDepth: z.number().int().min(0).max(8).optional().default(2),
+    maxDepth: z.coerce.number().int().min(0).max(8).optional().default(2),
   }),
   outputSchema: z.any(),
   toModelOutput: (output) => formatAgentToolsResult("listProjectFiles", output),
@@ -56,7 +56,7 @@ export const getProjectAppLogsTool = createTool({
   description:
     "Return application logs from the current project container through the project's agent-tools endpoint.",
   inputSchema: z.object({
-    tail: z.number().int().min(1).max(1000).optional().default(200),
+    tail: z.coerce.number().int().min(1).max(1000).optional().default(200),
   }),
   outputSchema: z.any(),
   toModelOutput: (output) => formatAgentToolsResult("getProjectAppLogs", output),
@@ -158,7 +158,7 @@ export const runProjectCommandTool = createTool({
   inputSchema: z.object({
     command: z.string().min(1),
     cwd: z.string().optional().default("."),
-    timeoutSeconds: z.number().int().min(1).max(300).optional().default(60),
+    timeoutSeconds: z.coerce.number().int().min(1).max(300).optional().default(60),
   }),
   outputSchema: z.any(),
   toModelOutput: (output) => formatAgentToolsResult("runProjectCommand", output),
@@ -297,6 +297,15 @@ function summarizeBody(body: unknown) {
 }
 
 function formatAgentToolsResult(toolName: string, result: unknown) {
+  const text = formatAgentToolsResultText(toolName, result);
+
+  return {
+    type: "text" as const,
+    value: text,
+  };
+}
+
+function formatAgentToolsResultText(toolName: string, result: unknown) {
   if (toolName === "listProjectFiles" && isFileTreeResult(result)) {
     return [
       `Files (${result.entries.length}):`,
