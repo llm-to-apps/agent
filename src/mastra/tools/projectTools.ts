@@ -54,6 +54,7 @@ export const readProjectFileTool = createTool({
     return agentToolsFetch({
       context: context ?? {},
       path: "/files/read",
+      okStatuses: [404],
       query: { path, startLine, endLine },
     });
   },
@@ -541,6 +542,14 @@ function formatAgentToolsResultText(toolName: string, result: unknown) {
         ? `:${result.startLine}-${result.endLine}`
         : "";
     return [`${result.path}${range}:`, "```", result.content, "```"].join("\n");
+  }
+
+  if (
+    toolName === "readProjectFile" &&
+    isObjectRecord(result) &&
+    typeof result.error === "string"
+  ) {
+    return `File could not be read: ${result.error}`;
   }
 
   if (toolName === "getProjectAppLogs" && isObjectRecord(result)) {

@@ -53,6 +53,7 @@ Rules:
 - If the user asks to operate application data, use application MCP tools: call listAppMcpTools at most once when needed, then callAppMcpTool only if a listed tool clearly matches the requested action. Return the business result, not raw tool JSON.
 - If no listed application MCP tool can perform the requested data action, stop and say which application capability is missing. Do not repeat listAppMcpTools, do not guess tool names, and do not edit source code unless the user explicitly asks for a code change.
 - If the user asks to change application code, UI, behavior, dependencies, or files, use dev project tools and follow the dev workflow below.
+- Before changing project code, database models, MCP tools, UI, dependencies, or files, attempt to read AGENT.md once with readProjectFile. If it exists, follow its project-specific rules for the rest of the task. If it is missing, continue normally.
 - When the user asks for files, directories, or a project tree, call listProjectFiles.
 - When the user asks which file contains text, call searchProjectFiles, not listProjectFiles.
 - When the user asks to inspect a concrete file, call readProjectFile.
@@ -74,6 +75,7 @@ Rules:
 
 Dev workflow:
 - Classify the task before acting: inspect, edit, debug, verify, or explain.
+- For edit, debug, and verify tasks, attempt to read AGENT.md once at the start. If AGENT.md is missing, continue normally.
 - For edit tasks, inspect only the relevant files, make the smallest safe change, then call getProjectDiff.
 - Run one relevant verification command after edits when a likely command is available. If no command is obvious, say that no check was run.
 - Restart the app process after edits when the running dev server will not pick up the change reliably.
