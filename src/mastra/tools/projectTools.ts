@@ -14,6 +14,12 @@ type AgentToolsFetchOptions = {
   context: ToolExecutionContext;
 };
 
+type AppMcpFetchOptions = {
+  context: ToolExecutionContext;
+  method?: string;
+  params?: Record<string, unknown>;
+};
+
 export const listProjectFilesTool = createTool({
   id: "listProjectFiles",
   description:
@@ -227,6 +233,43 @@ export const getProjectDiffTool = createTool({
   },
 });
 
+export const listAppMcpToolsTool = createTool({
+  id: "listAppMcpTools",
+  description:
+    "List product/runtime MCP tools exposed by the current application backend. Use this for app data operations, not code changes.",
+  inputSchema: z.object({}),
+  outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("listAppMcpTools", output),
+  execute: async (_input, context) => {
+    return appMcpFetch({
+      context: context ?? {},
+      method: "tools/list",
+    });
+  },
+});
+
+export const callAppMcpToolTool = createTool({
+  id: "callAppMcpTool",
+  description:
+    "Call one product/runtime MCP tool exposed by the current application backend. Use this for business actions such as adding Money categories or transactions.",
+  inputSchema: z.object({
+    name: z.string().min(1),
+    arguments: z.record(z.string(), z.unknown()).optional().default({}),
+  }),
+  outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("callAppMcpTool", output),
+  execute: async ({ arguments: toolArguments, name }, context) => {
+    return appMcpFetch({
+      context: context ?? {},
+      method: "tools/call",
+      params: {
+        name,
+        arguments: toolArguments,
+      },
+    });
+  },
+});
+
 async function agentToolsFetch({
   context,
   method = "GET",
@@ -307,6 +350,84 @@ async function agentToolsFetch({
   }
 
   return responseBody;
+}
+
+async function appMcpFetch({ context, method = "tools/list", params }: AppMcpFetchOptions) {
+  const startedAt = Date.now();
+  const appMcpUrl = readRequestContextValue(context, "appMcpUrl");
+  const token = readRequestContextValue(context, "appMcpToken");
+  const projectId = readRequestContextValue(context, "projectId");
+
+  if (typeof appMcpUrl !== "string" || !appMcpUrl) {
+    console.warn("[project-agent] missing app mcp url", { projectId });
+    throw new Error("Application MCP URL is missing from request context.");
+  }
+
+  const hasToken = typeof token === "string" && token.length > 0;
+
+  console.info("[project-agent] app-mcp request", {
+    projectId,
+    method,
+    hasToken,
+    params,
+  });
+  logAgentToolsDebug("[project-agent] app-mcp request payload", {
+    projectId,
+    method,
+    params,
+  });
+
+  const response = await fetch(appMcpUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(hasToken ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: crypto.randomUUID(),
+      method,
+      params,
+    }),
+  });
+  const rawBody = await response.text();
+  const responseBody = parseJson(rawBody);
+  const durationMs = Date.now() - startedAt;
+
+  console.info("[project-agent] app-mcp response", {
+    projectId,
+    method,
+    status: response.status,
+    ok: response.ok,
+    durationMs,
+  });
+  logAgentToolsDebug("[project-agent] app-mcp response payload", {
+    projectId,
+    method,
+    status: response.status,
+    ok: response.ok,
+    durationMs,
+    responseBody,
+    rawBody,
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Application MCP request failed with ${response.status}: ${summarizeBody(responseBody)}`,
+    );
+  }
+
+  if (
+    isObjectRecord(responseBody) &&
+    isObjectRecord(responseBody.error) &&
+    typeof responseBody.error.message === "string"
+  ) {
+    throw new Error(`Application MCP tool failed: ${responseBody.error.message}`);
+  }
+
+  return isObjectRecord(responseBody) && "result" in responseBody
+    ? responseBody.result
+    : responseBody;
 }
 
 function readRequestContextValue(context: ToolExecutionContext, key: string) {
@@ -436,6 +557,24 @@ function formatAgentToolsResultText(toolName: string, result: unknown) {
     const replacements =
       typeof result.replacements === "number" ? ` (${result.replacements} replacements)` : "";
     return `Updated ${result.path}${replacements}.`;
+  }
+
+  if (toolName === "listAppMcpTools" && isObjectRecord(result) && Array.isArray(result.tools)) {
+    return [
+      `Application MCP tools (${result.tools.length}):`,
+      ...result.tools.map((tool) => {
+        if (isObjectRecord(tool) && typeof tool.name === "string") {
+          const description = typeof tool.description === "string" ? ` - ${tool.description}` : "";
+          return `- ${tool.name}${description}`;
+        }
+
+        return `- ${JSON.stringify(tool)}`;
+      }),
+    ].join("\n");
+  }
+
+  if (toolName === "callAppMcpTool") {
+    return JSON.stringify(result, null, 2);
   }
 
   return JSON.stringify(result, null, 2);
