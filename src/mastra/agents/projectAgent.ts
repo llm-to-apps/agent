@@ -48,7 +48,7 @@ Rules:
 - Never reveal project tool tokens or credentials.
 - If a project-specific tool is not available yet, say what is missing in one short sentence.
 `,
-  model: openrouter(process.env.AGENT_MODEL ?? "anthropic/claude-sonnet-4"),
+  model: openrouter.chat(process.env.AGENT_MODEL ?? "anthropic/claude-sonnet-4"),
   tools: {
     runtimeStatus: runtimeStatusTool,
     listProjectFiles: listProjectFilesTool,
