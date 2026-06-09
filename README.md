@@ -17,7 +17,7 @@ Copy `.env.example` to `.env` and set:
 
 - `OPENROUTER_API_KEY`
 - `AGENT_MODEL`
-- `REDIS_URL`
+- `DATABASE_URL`
 - `MANAGER_URL`
 
 Example:
@@ -28,7 +28,7 @@ OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 OPENROUTER_SITE_URL=http://localhost:3000
 OPENROUTER_APP_NAME=LLM to Apps
 AGENT_MODEL=anthropic/claude-sonnet-4
-REDIS_URL=redis://localhost:6379
+DATABASE_URL=postgresql://llagents:password@postgres:5432/llagents_platform
 MANAGER_URL=http://manager:8080
 ```
 
@@ -36,8 +36,8 @@ MANAGER_URL=http://manager:8080
 `openai/gpt-4o-mini`, `anthropic/claude-sonnet-4`,
 `google/gemini-2.5-pro`, or `qwen/qwen3-coder`.
 
-Mastra Memory uses `REDIS_URL` for native message history. If it is not set,
-the agent falls back to `redis://localhost:6379`.
+Mastra Memory uses `DATABASE_URL` for native message history. If it is not set,
+the agent falls back to `postgresql://llagents:llagents@localhost:5432/llagents_platform`.
 
 ## Scripts
 
