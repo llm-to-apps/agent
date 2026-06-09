@@ -615,6 +615,10 @@ function formatAgentToolsResultText(toolName: string, result: unknown) {
   }
 
   if (toolName === "listAppMcpTools" && isObjectRecord(result) && Array.isArray(result.tools)) {
+    const toolNames = result.tools
+      .map((tool) => (isObjectRecord(tool) && typeof tool.name === "string" ? tool.name : ""))
+      .filter(Boolean);
+
     return [
       `Application MCP tools (${result.tools.length}):`,
       ...result.tools.map((tool) => {
@@ -625,6 +629,9 @@ function formatAgentToolsResultText(toolName: string, result: unknown) {
 
         return `- ${JSON.stringify(tool)}`;
       }),
+      "",
+      `Available tool names: ${toolNames.length > 0 ? toolNames.join(", ") : "none"}`,
+      "Do not call listAppMcpTools again for this request. If none of these tools matches the requested application data action, answer that the application MCP capability is missing.",
     ].join("\n");
   }
 
