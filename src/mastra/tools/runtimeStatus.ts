@@ -11,6 +11,12 @@ export const runtimeStatusTool = createTool({
     managerUrl: z.string(),
   }),
   execute: async () => {
+    console.info("[project-agent] runtime status requested", {
+      model: process.env.AGENT_MODEL ?? "gpt-4o-mini",
+      hasOpenRouterKey: Boolean(process.env.OPENROUTER_API_KEY),
+      managerUrl: process.env.MANAGER_URL ?? "http://manager:8080",
+    });
+
     return {
       ok: true,
       model: process.env.AGENT_MODEL ?? "gpt-4o-mini",
