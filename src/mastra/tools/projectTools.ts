@@ -222,6 +222,13 @@ async function agentToolsFetch({
     hasToken,
     query,
   });
+  logAgentToolsDebug("[project-agent] agent-tools request payload", {
+    projectId,
+    method,
+    path,
+    query,
+    requestBody,
+  });
 
   const response = await fetch(url, {
     method,
@@ -241,6 +248,15 @@ async function agentToolsFetch({
     status: response.status,
     ok: response.ok,
     durationMs,
+  });
+  logAgentToolsDebug("[project-agent] agent-tools response payload", {
+    projectId,
+    path,
+    status: response.status,
+    ok: response.ok,
+    durationMs,
+    responseBody,
+    rawBody,
   });
 
   const isExpectedStatus = response.ok || okStatuses?.includes(response.status);
@@ -294,6 +310,18 @@ function summarizeBody(body: unknown) {
   }
 
   return JSON.stringify(body).slice(0, 300);
+}
+
+function logAgentToolsDebug(message: string, payload: unknown) {
+  if (!isDebugLoggingEnabled()) {
+    return;
+  }
+
+  console.info(message, JSON.stringify(payload, null, 2));
+}
+
+function isDebugLoggingEnabled() {
+  return process.env.AGENT_TOOLS_DEBUG === "true" || process.env.DEBUG === "true";
 }
 
 function formatAgentToolsResult(toolName: string, result: unknown) {
