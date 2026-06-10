@@ -334,9 +334,10 @@ async function agentToolsFetch({
   const toolsUrl = readRequestContextValue(context, "toolsUrl");
   const token = readRequestContextValue(context, "agentToolsToken");
   const projectId = readRequestContextValue(context, "projectId");
+  const requestId = readRequestContextValue(context, "requestId");
 
   if (typeof toolsUrl !== "string" || !toolsUrl) {
-    console.warn("[project-agent] missing project tools url", { projectId });
+    console.warn("[project-agent] missing project tools url", { projectId, requestId });
     throw new Error("Project tools URL is missing from request context.");
   }
 
@@ -350,6 +351,7 @@ async function agentToolsFetch({
   const hasToken = typeof token === "string" && token.length > 0;
 
   console.info("[project-agent] agent-tools request", {
+    requestId,
     projectId,
     method,
     path,
@@ -357,6 +359,7 @@ async function agentToolsFetch({
     query,
   });
   logAgentToolsDebug("[project-agent] agent-tools request payload", {
+    requestId,
     projectId,
     method,
     path,
@@ -377,6 +380,7 @@ async function agentToolsFetch({
   const durationMs = Date.now() - startedAt;
 
   console.info("[project-agent] agent-tools response", {
+    requestId,
     projectId,
     path,
     status: response.status,
@@ -384,6 +388,7 @@ async function agentToolsFetch({
     durationMs,
   });
   logAgentToolsDebug("[project-agent] agent-tools response payload", {
+    requestId,
     projectId,
     path,
     status: response.status,
@@ -409,21 +414,24 @@ async function appMcpFetch({ context, method = "tools/list", params }: AppMcpFet
   const appMcpUrl = readRequestContextValue(context, "appMcpUrl");
   const token = readRequestContextValue(context, "appMcpToken");
   const projectId = readRequestContextValue(context, "projectId");
+  const requestId = readRequestContextValue(context, "requestId");
 
   if (typeof appMcpUrl !== "string" || !appMcpUrl) {
-    console.warn("[project-agent] missing app mcp url", { projectId });
+    console.warn("[project-agent] missing app mcp url", { projectId, requestId });
     throw new Error("Application MCP URL is missing from request context.");
   }
 
   const hasToken = typeof token === "string" && token.length > 0;
 
   console.info("[project-agent] app-mcp request", {
+    requestId,
     projectId,
     method,
     hasToken,
     params,
   });
   logAgentToolsDebug("[project-agent] app-mcp request payload", {
+    requestId,
     projectId,
     method,
     params,
@@ -447,6 +455,7 @@ async function appMcpFetch({ context, method = "tools/list", params }: AppMcpFet
   const durationMs = Date.now() - startedAt;
 
   console.info("[project-agent] app-mcp response", {
+    requestId,
     projectId,
     method,
     status: response.status,
@@ -454,6 +463,7 @@ async function appMcpFetch({ context, method = "tools/list", params }: AppMcpFet
     durationMs,
   });
   logAgentToolsDebug("[project-agent] app-mcp response payload", {
+    requestId,
     projectId,
     method,
     status: response.status,
