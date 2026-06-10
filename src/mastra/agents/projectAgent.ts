@@ -15,6 +15,7 @@ import {
   replaceTextInFileTool,
   restartProjectAppTool,
   runProjectCommandTool,
+  saveProjectChangesTool,
   searchProjectFilesTool,
   writeProjectFileTool,
 } from "../tools/projectTools";
@@ -64,6 +65,7 @@ Rules:
 - Use patchProjectFiles only for small, high-confidence unified diffs. If patchProjectFiles fails once, do not retry patchProjectFiles for the same file; read the file and use writeProjectFile instead.
 - Use writeProjectFile when replacing a whole file intentionally, when creating a new file, or when a patch failed.
 - After changing files, run a relevant check with runProjectCommand when possible.
+- If the user asks to save, publish, persist, commit, or push project changes, call saveProjectChanges with a concise commit message after verifying the changes.
 - When using runProjectCommand, omit cwd or use a relative cwd such as ".". Never pass absolute paths as cwd.
 - After Prisma schema changes, run npm run prisma:generate and npm run typecheck, restart the app process, then inspect app status or logs. Do not report success if these checks did not complete; report exactly what failed.
 - Do not intentionally edit generated framework files such as next-env.d.ts. If a tool run changes next-env.d.ts, treat it as generated noise, not as a meaningful project change.
@@ -106,6 +108,7 @@ Dev workflow:
     runProjectCommand: runProjectCommandTool,
     getProjectDiff: getProjectDiffTool,
     getProjectGitStatus: getProjectGitStatusTool,
+    saveProjectChanges: saveProjectChangesTool,
   },
   memory: projectMemory,
 });

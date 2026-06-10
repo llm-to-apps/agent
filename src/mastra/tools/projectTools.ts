@@ -265,6 +265,26 @@ export const getProjectDiffTool = createTool({
   },
 });
 
+export const saveProjectChangesTool = createTool({
+  id: "saveProjectChanges",
+  description:
+    "Commit all current project file changes with the provided message and push them to the project's Git remote. Use this after successful edits when the user wants changes saved or published.",
+  inputSchema: z.object({
+    message: z.string().min(1),
+  }),
+  outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("saveProjectChanges", output),
+  execute: async ({ message }, context) => {
+    return agentToolsFetch({
+      method: "POST",
+      context: context ?? {},
+      path: "/git/save",
+      okStatuses: [200, 400],
+      requestBody: { message },
+    });
+  },
+});
+
 export const listAppMcpToolsTool = createTool({
   id: "listAppMcpTools",
   description:
