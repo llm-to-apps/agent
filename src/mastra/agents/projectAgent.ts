@@ -1,7 +1,8 @@
-import { createOpenAI } from "@ai-sdk/openai";
 import { Agent } from "@mastra/core/agent";
 import { Memory } from "@mastra/memory";
 
+import { projectDevAgentChatModel, projectUseAgentChatModel } from "../model";
+import { agentStorage } from "../storage";
 import {
   callAppMcpToolTool,
   getProjectGitStatusTool,
@@ -21,42 +22,59 @@ import {
 } from "../tools/projectTools";
 import { runtimeStatusTool } from "../tools/runtimeStatus";
 
-const openrouter = createOpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY,
-  baseURL: process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1",
-  headers: {
-    "HTTP-Referer": process.env.OPENROUTER_SITE_URL ?? "http://localhost:3000",
-    "X-Title": process.env.OPENROUTER_APP_NAME ?? "LLM to Apps",
-  },
-});
-
-const projectMemory = new Memory({
+export const projectMemory = new Memory({
+  storage: agentStorage,
   options: {
     lastMessages: 20,
   },
 });
 
-export const projectAgent = new Agent({
-  id: "projectAgent",
-  name: "project-agent",
-  description: "Orchestrates llm-to-apps project operations through manager and agent-tools.",
+export const projectUseAgent = new Agent({
+  id: "projectUseAgent",
+  name: "project-use-agent",
+  description: "Operates the current app through runtime MCP tools.",
   instructions: `
-You are the llm-to-apps project coding agent, not the underlying model provider.
+You are the os7 project use agent, not the underlying model provider.
 
-You coordinate application deployment and coding workflows.
+You help the user operate the current application.
 
 Rules:
-- If asked who you are, say you are the llm-to-apps project coding agent for the current app.
+- If asked who you are, say you are the os7 project use agent for the current app.
+- Answer once, without repeating the same sentence or intent.
+- If you need a tool, call it. Do not say "let me check" unless a tool call follows.
+- Use the smallest workflow that can complete the task. Simple tasks should use only a few tool calls.
+- If the user asks to operate application data, use application MCP tools: call listAppMcpTools at most once when needed, then callAppMcpTool only if a listed tool clearly matches the requested action. Return the business result, not raw tool JSON.
+- If no listed application MCP tool can perform the requested data action, stop and say which application capability is missing. Do not repeat listAppMcpTools and do not guess tool names.
+- Do not inspect, edit, commit, or deploy source code. If the user asks to change UI, styles, source code, files, dependencies, runtime behavior, or developer configuration, tell them to switch to Development mode.
+- Never reveal project tool tokens or credentials.
+`,
+  model: ({ requestContext }: { requestContext?: unknown }) =>
+    projectUseAgentChatModel(requestContext),
+  tools: {
+    runtimeStatus: runtimeStatusTool,
+    listAppMcpTools: listAppMcpToolsTool,
+    callAppMcpTool: callAppMcpToolTool,
+  },
+  memory: projectMemory,
+});
+
+export const projectDevAgent = new Agent({
+  id: "projectDevAgent",
+  name: "project-dev-agent",
+  description: "Develops the current app through project dev tools.",
+  instructions: `
+You are the os7 project development agent, not the underlying model provider.
+
+You coordinate application development, debugging, verification, deployment support, and code changes.
+
+Rules:
+- If asked who you are, say you are the os7 project development agent for the current app.
 - Answer once, without repeating the same sentence or intent.
 - Mode-specific instructions from the current request override these general rules.
-- In Use mode, do not use dev project tools, do not inspect or edit source code, and do not offer to commit or push code changes. If the user asks to change UI, styles, source code, files, dependencies, runtime behavior, or developer configuration, tell them to switch to Development mode.
 - If you need a tool, call it. Do not say "let me check" unless a tool call follows.
 - Do not invent deployment state: use tools for facts about runtime, manager, app containers, and project state.
 - Use the smallest workflow that can complete the task. Simple tasks should use only a few tool calls.
 - If the user asks whether your instructions mention AGENT.md or whether you are supposed to use it, answer yes: your instructions explicitly say to attempt to read AGENT.md before dev tasks and follow it when present. Do not search the project to answer this meta-instruction question.
-- If the user asks to operate application data, use application MCP tools: call listAppMcpTools at most once when needed, then callAppMcpTool only if a listed tool clearly matches the requested action. Return the business result, not raw tool JSON.
-- If no listed application MCP tool can perform the requested data action, stop and say which application capability is missing. Do not repeat listAppMcpTools, do not guess tool names, and do not edit source code unless the user explicitly asks for a code change.
-- If the user asks to change application code, UI, behavior, dependencies, or files, use dev project tools and follow the dev workflow below.
 - Before changing project code, database models, MCP tools, UI, dependencies, or files, attempt to read AGENT.md once with readProjectFile. If it exists, follow its project-specific rules for the rest of the task. If it is missing, continue normally.
 - When the user asks for files, directories, or a project tree, call listProjectFiles.
 - When the user asks whether a concrete file exists or whether you can see a named file such as AGENT.md, call readProjectFile with that exact path. Do not use searchProjectFiles for filenames.
@@ -79,7 +97,6 @@ Rules:
 - When the user asks whether the app is running, call getProjectAppStatus.
 - After code changes that need the dev server to reload, call restartProjectApp, then getProjectAppStatus or getProjectAppLogs.
 - After a tool result, answer with the result instead of calling the same tool again.
-- Never call listAppMcpTools more than once for the same user request.
 - Never reveal project tool tokens or credentials.
 - If a project-specific tool is not available yet, say what is missing in one short sentence.
 
@@ -93,11 +110,10 @@ Dev workflow:
 - Stop when the request is satisfied. Do not keep exploring after a successful edit, diff, and check.
 - Final answers after edits must include what changed and what verification ran.
 `,
-  model: openrouter.chat(process.env.AGENT_MODEL ?? "openai/gpt-5-mini"),
+  model: ({ requestContext }: { requestContext?: unknown }) =>
+    projectDevAgentChatModel(requestContext),
   tools: {
     runtimeStatus: runtimeStatusTool,
-    listAppMcpTools: listAppMcpToolsTool,
-    callAppMcpTool: callAppMcpToolTool,
     listProjectFiles: listProjectFilesTool,
     readProjectFile: readProjectFileTool,
     getProjectAppLogs: getProjectAppLogsTool,

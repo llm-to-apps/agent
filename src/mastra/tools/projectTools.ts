@@ -412,7 +412,7 @@ async function agentToolsFetch({
 async function appMcpFetch({ context, method = "tools/list", params }: AppMcpFetchOptions) {
   const startedAt = Date.now();
   const appMcpUrl = readRequestContextValue(context, "appMcpUrl");
-  const token = readRequestContextValue(context, "appMcpToken");
+  const token = readRequestContextValue(context, "projectUserToken");
   const projectId = readRequestContextValue(context, "projectId");
   const requestId = readRequestContextValue(context, "requestId");
 

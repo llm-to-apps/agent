@@ -1,6 +1,8 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 
+import { defaultUserAgentModel } from "../model";
+
 export const runtimeStatusTool = createTool({
   id: "runtime-status",
   description: "Returns the configured agent runtime status and connected service URLs.",
@@ -12,15 +14,15 @@ export const runtimeStatusTool = createTool({
   }),
   execute: async () => {
     console.info("[project-agent] runtime status requested", {
-      model: process.env.AGENT_MODEL ?? "gpt-4o-mini",
+      model: defaultUserAgentModel,
       hasOpenRouterKey: Boolean(process.env.OPENROUTER_API_KEY),
-      managerUrl: process.env.MANAGER_URL ?? "http://manager:8080",
+      managerUrl: process.env.MANAGER_URL ?? "http://manager",
     });
 
     return {
       ok: true,
-      model: process.env.AGENT_MODEL ?? "gpt-4o-mini",
-      managerUrl: process.env.MANAGER_URL ?? "http://manager:8080",
+      model: defaultUserAgentModel,
+      managerUrl: process.env.MANAGER_URL ?? "http://manager",
     };
   },
 });
