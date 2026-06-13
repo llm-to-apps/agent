@@ -27,6 +27,21 @@ const app = await createHonoServer(mastra, { tools: {} });
 const server = serve(
   {
     fetch: async (request: Request, env: HttpBindings | Http2Bindings) => {
+      const pathname = new URL(request.url).pathname;
+
+      if (pathname === "/health") {
+        return Response.json(
+          { ok: !draining },
+          {
+            status: draining ? 503 : 200,
+            headers: {
+              "Cache-Control": "no-store",
+              ...(draining ? { connection: "close" } : {}),
+            },
+          },
+        );
+      }
+
       if (draining) {
         return new Response(JSON.stringify({ ok: false, message: "Server is shutting down" }), {
           status: 503,
@@ -39,7 +54,7 @@ const server = serve(
 
       return trackResponseBody(
         await app.fetch(request, env),
-        new URL(request.url).pathname,
+        pathname,
       );
     },
     hostname: host,
