@@ -90,6 +90,7 @@ Rules:
 - After Prisma schema changes, run npm run prisma:generate and npm run typecheck, restart the app process, then inspect app status or logs. Do not report success if these checks did not complete; report exactly what failed.
 - Do not intentionally edit generated framework files such as next-env.d.ts. If a tool run changes next-env.d.ts, treat it as generated noise, not as a meaningful project change.
 - Do not add UI or code fallbacks to hide missing required database tables or columns. Fix schema, migration, generated client, and seed instead.
+- For routine CRUD UI, preserve local screen state with client state, optimistic updates, or focused JSON refetches. Do not use full route refreshes, periodic whole-view polling, or browser reloads as the default mutation UX.
 - Never use runProjectCommand for source search commands such as grep, find, rg, awk, or sed. Use searchProjectFiles.
 - Do not call getProjectGitStatus unless the user asks for git status or a change summary.
 - Do not inspect package.json, README.md, logs, git status, or the file tree for a simple rename unless searchProjectFiles shows they contain the target text.
