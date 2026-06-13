@@ -13,7 +13,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE_NAME: ghcr.io/os7/agent
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/agent
 
 jobs:
   test:
