@@ -66,14 +66,15 @@ export const getProjectAppLogsTool = createTool({
     "Return application logs from the current project container through the project's agent-tools endpoint.",
   inputSchema: z.object({
     tail: z.coerce.number().int().min(1).max(1000).optional().default(200),
+    process: z.enum(["prod", "dev"]).optional().default("prod"),
   }),
   outputSchema: z.any(),
   toModelOutput: (output) => formatAgentToolsResult("getProjectAppLogs", output),
-  execute: async ({ tail }, context) => {
+  execute: async ({ process, tail }, context) => {
     return agentToolsFetch({
       context: context ?? {},
       path: "/app/logs",
-      query: { tail },
+      query: { process, tail },
     });
   },
 });
@@ -93,18 +94,69 @@ export const getProjectAppStatusTool = createTool({
   },
 });
 
-export const restartProjectAppTool = createTool({
-  id: "restartProjectApp",
+export const startProjectDevServerTool = createTool({
+  id: "startProjectDevServer",
   description:
-    "Restart the supervised application process in the current project container. Use this after code or dependency changes when the dev server needs to reload.",
+    "Start the supervised dev server in the current project container without stopping the production server.",
   inputSchema: z.object({}),
   outputSchema: z.any(),
-  toModelOutput: (output) => formatAgentToolsResult("restartProjectApp", output),
+  toModelOutput: (output) => formatAgentToolsResult("startProjectDevServer", output),
   execute: async (_input, context) => {
     return agentToolsFetch({
       method: "POST",
       context: context ?? {},
-      path: "/app/restart",
+      path: "/app/dev/start",
+    });
+  },
+});
+
+export const stopProjectDevServerTool = createTool({
+  id: "stopProjectDevServer",
+  description: "Stop the supervised dev server in the current project container.",
+  inputSchema: z.object({}),
+  outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("stopProjectDevServer", output),
+  execute: async (_input, context) => {
+    return agentToolsFetch({
+      method: "POST",
+      context: context ?? {},
+      path: "/app/dev/stop",
+    });
+  },
+});
+
+export const restartProjectProdServerTool = createTool({
+  id: "restartProjectProdServer",
+  description:
+    "Restart the supervised production server in the current project container. Use after a successful production build.",
+  inputSchema: z.object({}),
+  outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("restartProjectProdServer", output),
+  execute: async (_input, context) => {
+    return agentToolsFetch({
+      method: "POST",
+      context: context ?? {},
+      path: "/app/prod/restart",
+    });
+  },
+});
+
+export const buildProjectAppTool = createTool({
+  id: "buildProjectApp",
+  description:
+    "Run the configured application build command through agent-tools. This does not switch the running app process to production mode.",
+  inputSchema: z.object({
+    timeoutSeconds: z.coerce.number().int().min(1).max(1800).optional(),
+  }),
+  outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("buildProjectApp", output),
+  execute: async ({ timeoutSeconds }, context) => {
+    return agentToolsFetch({
+      method: "POST",
+      context: context ?? {},
+      path: "/app/build",
+      okStatuses: [400],
+      requestBody: { timeoutSeconds },
     });
   },
 });
@@ -591,24 +643,58 @@ function formatAgentToolsResultText(toolName: string, result: unknown) {
   }
 
   if (
-    (toolName === "getProjectAppStatus" || toolName === "restartProjectApp") &&
+    (toolName === "getProjectAppStatus" ||
+      toolName === "startProjectDevServer" ||
+      toolName === "stopProjectDevServer" ||
+      toolName === "restartProjectProdServer") &&
     isObjectRecord(result)
   ) {
+    if (isObjectRecord(result.prod) || isObjectRecord(result.dev)) {
+      return ["prod", "dev"]
+        .map((name) => {
+          const process = result[name];
+          if (!isObjectRecord(process)) {
+            return "";
+          }
+          return [
+            `${name}:`,
+            `running: ${String(process.running ?? false)}`,
+            `pid: ${String(process.pid ?? 0)}`,
+            typeof process.command === "string" ? `command: ${process.command}` : "",
+            typeof process.started === "string" ? `started: ${process.started}` : "",
+            typeof process.lastExitError === "string" && process.lastExitError
+              ? `lastExitError: ${process.lastExitError}`
+              : "",
+            typeof process.logPath === "string" ? `logPath: ${process.logPath}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n");
+        })
+        .filter(Boolean)
+        .join("\n\n");
+    }
+
     return [
       `running: ${String(result.running ?? false)}`,
       `pid: ${String(result.pid ?? 0)}`,
-      typeof result.supervisorEnabled === "boolean"
-        ? `supervisorEnabled: ${String(result.supervisorEnabled)}`
-        : "",
-      typeof result.restartCount === "number" ? `restartCount: ${result.restartCount}` : "",
-      typeof result.maxRestarts === "number" ? `maxRestarts: ${result.maxRestarts}` : "",
       typeof result.command === "string" ? `command: ${result.command}` : "",
       typeof result.started === "string" ? `started: ${result.started}` : "",
-      typeof result.lastExit === "string" ? `lastExit: ${result.lastExit}` : "",
       typeof result.lastExitError === "string" && result.lastExitError
         ? `lastExitError: ${result.lastExitError}`
         : "",
       typeof result.logPath === "string" ? `logPath: ${result.logPath}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  if (toolName === "buildProjectApp" && isCommandResult(result)) {
+    return [
+      `exitCode: ${result.exitCode}`,
+      result.command ? `command: ${result.command}` : "",
+      result.stdout.trim() ? `stdout:\n${result.stdout.trim()}` : "",
+      result.stderr.trim() ? `stderr:\n${result.stderr.trim()}` : "",
+      result.duration ? `duration: ${result.duration}` : "",
     ]
       .filter(Boolean)
       .join("\n");
@@ -715,6 +801,7 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
 
 function isCommandResult(result: unknown): result is {
   command: string;
+  duration?: string;
   exitCode: number;
   stdout: string;
   stderr: string;
@@ -724,6 +811,7 @@ function isCommandResult(result: unknown): result is {
     typeof result.command === "string" &&
     typeof result.exitCode === "number" &&
     typeof result.stdout === "string" &&
-    typeof result.stderr === "string"
+    typeof result.stderr === "string" &&
+    (result.duration === undefined || typeof result.duration === "string")
   );
 }

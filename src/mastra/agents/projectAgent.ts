@@ -4,6 +4,7 @@ import { Memory } from "@mastra/memory";
 import { projectDevAgentChatModel, projectUseAgentChatModel } from "../model";
 import { agentStorage } from "../storage";
 import {
+  buildProjectAppTool,
   callAppMcpToolTool,
   getProjectGitStatusTool,
   getProjectAppLogsTool,
@@ -14,10 +15,12 @@ import {
   patchProjectFilesTool,
   readProjectFileTool,
   replaceTextInFileTool,
-  restartProjectAppTool,
+  restartProjectProdServerTool,
   runProjectCommandTool,
   saveProjectChangesTool,
   searchProjectFilesTool,
+  startProjectDevServerTool,
+  stopProjectDevServerTool,
   writeProjectFileTool,
 } from "../tools/projectTools";
 import { runtimeStatusTool } from "../tools/runtimeStatus";
@@ -76,6 +79,7 @@ Rules:
 - Use the smallest workflow that can complete the task. Simple tasks should use only a few tool calls.
 - If the user asks whether your instructions mention AGENT.md or whether you are supposed to use it, answer yes: your instructions explicitly say to attempt to read AGENT.md before dev tasks and follow it when present. Do not search the project to answer this meta-instruction question.
 - Before changing project code, database models, MCP tools, UI, dependencies, or files, attempt to read AGENT.md once with readProjectFile. If it exists, follow its project-specific rules for the rest of the task. If it is missing, continue normally.
+- Before changing project code, database models, MCP tools, UI, dependencies, or files, call getProjectAppStatus. If the dev process is not running, call startProjectDevServer before editing so the workspace is live-editable while prod stays online.
 - When the user asks for files, directories, or a project tree, call listProjectFiles.
 - When the user asks whether a concrete file exists or whether you can see a named file such as AGENT.md, call readProjectFile with that exact path. Do not use searchProjectFiles for filenames.
 - When the user asks which file contains text, call searchProjectFiles, not listProjectFiles.
@@ -87,7 +91,7 @@ Rules:
 - After changing files, run a relevant check with runProjectCommand when possible.
 - If the user asks to save, publish, persist, commit, or push project changes, call saveProjectChanges with a concise commit message after verifying the changes.
 - When using runProjectCommand, omit cwd or use a relative cwd such as ".". Never pass absolute paths as cwd.
-- After Prisma schema changes, run npm run prisma:generate and npm run typecheck, restart the app process, then inspect app status or logs. Do not report success if these checks did not complete; report exactly what failed.
+- After Prisma schema changes, run npm run prisma:generate and npm run typecheck, then inspect app status or logs. Do not report success if these checks did not complete; report exactly what failed.
 - Do not intentionally edit generated framework files such as next-env.d.ts. If a tool run changes next-env.d.ts, treat it as generated noise, not as a meaningful project change.
 - Do not add UI or code fallbacks to hide missing required database tables or columns. Fix schema, migration, generated client, and seed instead.
 - For routine CRUD UI, preserve local screen state with client state, optimistic updates, or focused JSON refetches. Do not use full route refreshes, periodic whole-view polling, or browser reloads as the default mutation UX.
@@ -96,7 +100,8 @@ Rules:
 - Do not inspect package.json, README.md, logs, git status, or the file tree for a simple rename unless searchProjectFiles shows they contain the target text.
 - When the user asks why the app is broken or what happened at runtime, call getProjectAppLogs.
 - When the user asks whether the app is running, call getProjectAppStatus.
-- After code changes that need the dev server to reload, call restartProjectApp, then getProjectAppStatus or getProjectAppLogs.
+- After code changes, the dev server should pick them up. If it is not responding, call stopProjectDevServer, then startProjectDevServer, then getProjectAppStatus or getProjectAppLogs with process "dev".
+- After successful edits and verification, if the user asked to publish/preview the fast runtime, call buildProjectApp first, then restartProjectProdServer only if the build succeeds.
 - After a tool result, answer with the result instead of calling the same tool again.
 - Never reveal project tool tokens or credentials.
 - If a project-specific tool is not available yet, say what is missing in one short sentence.
@@ -104,10 +109,12 @@ Rules:
 Dev workflow:
 - Classify the task before acting: inspect, edit, debug, verify, or explain.
 - For edit, debug, and verify tasks, attempt to read AGENT.md once at the start. If AGENT.md is missing, continue normally.
+- For edit tasks, call getProjectAppStatus before editing. If dev is not running, startProjectDevServer before editing.
 - For edit tasks, inspect only the relevant files, make the smallest safe change, then call getProjectDiff.
 - Run one relevant verification command after edits when a likely command is available. If no command is obvious, say that no check was run.
 - For database model edits, verification must include prisma:generate and typecheck when those scripts exist.
-- Restart the app process after edits when the running dev server will not pick up the change reliably.
+- Restart the dev process only when the running dev server will not pick up the change reliably.
+- If the user asks to publish the edit, call buildProjectApp, then restartProjectProdServer. If build fails, leave prod running on the previous build and report the failure.
 - Stop when the request is satisfied. Do not keep exploring after a successful edit, diff, and check.
 - Final answers after edits must include what changed and what verification ran.
 `,
@@ -123,7 +130,10 @@ Dev workflow:
     replaceTextInFile: replaceTextInFileTool,
     writeProjectFile: writeProjectFileTool,
     patchProjectFiles: patchProjectFilesTool,
-    restartProjectApp: restartProjectAppTool,
+    startProjectDevServer: startProjectDevServerTool,
+    stopProjectDevServer: stopProjectDevServerTool,
+    restartProjectProdServer: restartProjectProdServerTool,
+    buildProjectApp: buildProjectAppTool,
     runProjectCommand: runProjectCommandTool,
     getProjectDiff: getProjectDiffTool,
     getProjectGitStatus: getProjectGitStatusTool,
