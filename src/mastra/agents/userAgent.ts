@@ -8,6 +8,7 @@ import {
   askAppAgentTool,
   getPersonalUsageSummaryTool,
   listPersonalAppsTool,
+  searchUploadedFilesTool,
 } from "../tools/userTools";
 
 export const userMemory = new Memory({
@@ -20,7 +21,8 @@ export const userMemory = new Memory({
 export const userAgent = new Agent({
   id: "userAgent",
   name: "user-agent",
-  description: "Helps a user manage apps and route project-specific work to project agents.",
+  description:
+    "Helps a user manage apps and route project-specific work to project agents.",
   instructions: `
 You are the os7 user agent for the current signed-in user.
 
@@ -42,6 +44,9 @@ Rules:
 - If the user asks what apps they have, call listPersonalApps.
 - When listPersonalApps returns "I see these installed apps (N)" where N is greater than 0, copy that list to the user. Never say the list is empty in that case.
 - If the user asks about token usage, call getPersonalUsageSummary.
+- searchUploadedFiles only searches files attached to the current user message. If no files were attached, it returns no document passages.
+- If the user asks about an uploaded file, document, notes, text file, attachment, or says "in the file", call searchUploadedFiles before answering.
+- When answering from uploaded files, cite the file name when it is present in the search result.
 - If the user asks to use data or perform a business action inside a specific app, call listPersonalApps when needed, choose the app, then call askAppAgent.
 - If the user asks to change code, UI, files, dependencies, or runtime behavior in a specific app, tell them that Dev mode inside that app is required. Do not call askAppAgent for code changes.
 - If no target app is clear for a project-specific task, ask a concise question to identify the app.
@@ -53,6 +58,7 @@ Rules:
     runtimeStatus: runtimeStatusTool,
     listPersonalApps: listPersonalAppsTool,
     getPersonalUsageSummary: getPersonalUsageSummaryTool,
+    searchUploadedFiles: searchUploadedFilesTool,
     askAppAgent: askAppAgentTool,
   },
   memory: userMemory,

@@ -20,6 +20,12 @@ type AppMcpFetchOptions = {
   params?: Record<string, unknown>;
 };
 
+type PersonalMcpFetchOptions = {
+  context: ToolExecutionContext;
+  method?: string;
+  params?: Record<string, unknown>;
+};
+
 export const listProjectFilesTool = createTool({
   id: "listProjectFiles",
   description:
@@ -374,6 +380,39 @@ export const callAppMcpToolTool = createTool({
   },
 });
 
+export const searchUploadedProjectFilesTool = createTool({
+  id: "searchUploadedProjectFiles",
+  description:
+    "Search files attached to the current project chat message for relevant passages before answering document-related questions.",
+  inputSchema: z.object({
+    query: z.string().min(1),
+  }),
+  outputSchema: z.any(),
+  toModelOutput: (output) =>
+    formatAgentToolsResult("searchUploadedProjectFiles", output),
+  execute: async ({ query }, context) => {
+    const attachedFileIds = readRequestContextStringArray(
+      context ?? {},
+      "attachedFileIds",
+    );
+    const projectId = readRequestContextValue(context ?? {}, "projectId");
+
+    return personalMcpFetch({
+      context: context ?? {},
+      method: "tools/call",
+      params: {
+        name: "search_uploaded_files",
+        arguments: {
+          attachedFileIds,
+          projectId,
+          query,
+          scope: "project_agent",
+        },
+      },
+    });
+  },
+});
+
 async function agentToolsFetch({
   context,
   method = "GET",
@@ -544,6 +583,87 @@ async function appMcpFetch({ context, method = "tools/list", params }: AppMcpFet
     : responseBody;
 }
 
+async function personalMcpFetch({
+  context,
+  method = "tools/list",
+  params,
+}: PersonalMcpFetchOptions) {
+  const startedAt = Date.now();
+  const personalMcpUrl = readRequestContextValue(context, "personalMcpUrl");
+  const token = readRequestContextValue(context, "personalMcpToken");
+  const projectId = readRequestContextValue(context, "projectId");
+  const requestId = readRequestContextValue(context, "requestId");
+
+  if (typeof personalMcpUrl !== "string" || !personalMcpUrl) {
+    console.warn("[project-agent] missing personal mcp url", {
+      projectId,
+      requestId,
+    });
+    throw new Error("Personal OS MCP URL is missing from request context.");
+  }
+
+  const hasToken = typeof token === "string" && token.length > 0;
+  if (!hasToken) {
+    console.warn("[project-agent] missing personal mcp token", {
+      projectId,
+      requestId,
+    });
+    throw new Error("Personal OS MCP token is missing from request context.");
+  }
+
+  console.info("[project-agent] personal-mcp request", {
+    requestId,
+    projectId,
+    method,
+    hasToken,
+    params,
+  });
+
+  const response = await fetch(personalMcpUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: crypto.randomUUID(),
+      method,
+      params,
+    }),
+  });
+  const rawBody = await response.text();
+  const responseBody = parseJson(rawBody);
+  const durationMs = Date.now() - startedAt;
+
+  console.info("[project-agent] personal-mcp response", {
+    requestId,
+    projectId,
+    method,
+    status: response.status,
+    ok: response.ok,
+    durationMs,
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Personal OS MCP request failed with ${response.status}: ${summarizeBody(responseBody)}`,
+    );
+  }
+
+  if (
+    isObjectRecord(responseBody) &&
+    isObjectRecord(responseBody.error) &&
+    typeof responseBody.error.message === "string"
+  ) {
+    throw new Error(`Personal OS MCP tool failed: ${responseBody.error.message}`);
+  }
+
+  return isObjectRecord(responseBody) && "result" in responseBody
+    ? unwrapMcpToolResult(responseBody.result)
+    : responseBody;
+}
+
 function readRequestContextValue(context: ToolExecutionContext, key: string) {
   const requestContext = context.requestContext;
 
@@ -564,6 +684,27 @@ function readRequestContextValue(context: ToolExecutionContext, key: string) {
   }
 
   return undefined;
+}
+
+function readRequestContextStringArray(
+  context: ToolExecutionContext,
+  key: string,
+) {
+  const value = readRequestContextValue(context, key);
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function unwrapMcpToolResult(result: unknown) {
+  if (isObjectRecord(result) && "structuredContent" in result) {
+    return result.structuredContent;
+  }
+
+  return result;
 }
 
 function ensureTrailingSlash(url: string) {

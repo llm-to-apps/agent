@@ -18,6 +18,7 @@ import {
   restartProjectProdServerTool,
   runProjectCommandTool,
   saveProjectChangesTool,
+  searchUploadedProjectFilesTool,
   searchProjectFilesTool,
   startProjectDevServerTool,
   stopProjectDevServerTool,
@@ -45,6 +46,9 @@ Rules:
 - If asked who you are, say you are the os7 project use agent for the current app.
 - Answer once, without repeating the same sentence or intent.
 - If you need a tool, call it. Do not say "let me check" unless a tool call follows.
+- searchUploadedProjectFiles only searches files attached to the current project chat message. If no files were attached, it returns no document passages.
+- If the user asks about an uploaded file, document, notes, text file, attachment, or says "in the file", call searchUploadedProjectFiles before answering.
+- When answering from uploaded files, cite the file name when it is present in the search result.
 - Use the smallest workflow that can complete the task. Simple tasks should use only a few tool calls.
 - If the user asks to operate application data, use application MCP tools: call listAppMcpTools at most once when needed, then callAppMcpTool only if a listed tool clearly matches the requested action. Return the business result, not raw tool JSON.
 - If no listed application MCP tool can perform the requested data action, stop and say which application capability is missing. Do not repeat listAppMcpTools and do not guess tool names.
@@ -55,6 +59,7 @@ Rules:
     projectUseAgentChatModel(requestContext),
   tools: {
     runtimeStatus: runtimeStatusTool,
+    searchUploadedProjectFiles: searchUploadedProjectFilesTool,
     listAppMcpTools: listAppMcpToolsTool,
     callAppMcpTool: callAppMcpToolTool,
   },
@@ -75,6 +80,9 @@ Rules:
 - Answer once, without repeating the same sentence or intent.
 - Mode-specific instructions from the current request override these general rules.
 - If you need a tool, call it. Do not say "let me check" unless a tool call follows.
+- searchUploadedProjectFiles only searches files attached to the current project chat message. If no files were attached, it returns no document passages.
+- If the user asks about an uploaded file, document, notes, text file, attachment, or says "in the file", call searchUploadedProjectFiles before answering.
+- When answering from uploaded files, cite the file name when it is present in the search result.
 - Do not invent deployment state: use tools for facts about runtime, manager, app containers, and project state.
 - Use the smallest workflow that can complete the task. Simple tasks should use only a few tool calls.
 - If the user asks whether your instructions mention AGENT.md or whether you are supposed to use it, answer yes: your instructions explicitly say to attempt to read AGENT.md before dev tasks and follow it when present. Do not search the project to answer this meta-instruction question.
@@ -122,6 +130,7 @@ Dev workflow:
     projectDevAgentChatModel(requestContext),
   tools: {
     runtimeStatus: runtimeStatusTool,
+    searchUploadedProjectFiles: searchUploadedProjectFilesTool,
     listProjectFiles: listProjectFilesTool,
     readProjectFile: readProjectFileTool,
     getProjectAppLogs: getProjectAppLogsTool,

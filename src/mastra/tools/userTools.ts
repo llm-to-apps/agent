@@ -13,10 +13,12 @@ type PersonalMcpFetchOptions = {
 
 export const listPersonalAppsTool = createTool({
   id: "listPersonalApps",
-  description: "List apps available to the current OS7 user through their Personal OS MCP.",
+  description:
+    "List apps available to the current OS7 user through their Personal OS MCP.",
   inputSchema: z.object({}),
   outputSchema: z.any(),
-  toModelOutput: (output) => formatPersonalMcpResult("listPersonalApps", output),
+  toModelOutput: (output) =>
+    formatPersonalMcpResult("listPersonalApps", output),
   execute: async (_input, context) => {
     return personalMcpFetch({
       context: context ?? {},
@@ -34,7 +36,8 @@ export const getPersonalUsageSummaryTool = createTool({
   description: "Return total agent token usage for the current OS7 user.",
   inputSchema: z.object({}),
   outputSchema: z.any(),
-  toModelOutput: (output) => formatPersonalMcpResult("getPersonalUsageSummary", output),
+  toModelOutput: (output) =>
+    formatPersonalMcpResult("getPersonalUsageSummary", output),
   execute: async (_input, context) => {
     return personalMcpFetch({
       context: context ?? {},
@@ -47,13 +50,46 @@ export const getPersonalUsageSummaryTool = createTool({
   },
 });
 
+export const searchUploadedFilesTool = createTool({
+  id: "searchUploadedFiles",
+  description:
+    "Search files attached to the current user message for relevant passages before answering document-related questions.",
+  inputSchema: z.object({
+    query: z.string().min(1),
+  }),
+  outputSchema: z.any(),
+  toModelOutput: (output) =>
+    formatPersonalMcpResult("searchUploadedFiles", output),
+  execute: async ({ query }, context) => {
+    const attachedFileIds = readRequestContextStringArray(
+      context ?? {},
+      "attachedFileIds",
+    );
+
+    return personalMcpFetch({
+      context: context ?? {},
+      method: "tools/call",
+      params: {
+        name: "search_uploaded_files",
+        arguments: {
+          attachedFileIds,
+          query,
+        },
+      },
+    });
+  },
+});
+
 export const askAppAgentTool = createTool({
   id: "askAppAgent",
   description:
     "Delegate a task to one OS7 app agent in Use mode through Personal OS MCP. This cannot modify app code or run Dev mode.",
   inputSchema: z.object({
     appId: z.string().min(1),
-    appName: z.string().min(1).describe("Human-readable app name for UI progress display."),
+    appName: z
+      .string()
+      .min(1)
+      .describe("Human-readable app name for UI progress display."),
     message: z.string().min(1),
   }),
   outputSchema: z.any(),
@@ -85,13 +121,19 @@ async function personalMcpFetch({
   const userId = readRequestContextValue(context, "userId");
 
   if (typeof personalMcpUrl !== "string" || !personalMcpUrl) {
-    console.warn("[user-agent] missing personal mcp url", { requestId, userId });
+    console.warn("[user-agent] missing personal mcp url", {
+      requestId,
+      userId,
+    });
     throw new Error("Personal OS MCP URL is missing from request context.");
   }
 
   const hasToken = typeof token === "string" && token.length > 0;
   if (!hasToken) {
-    console.warn("[user-agent] missing personal mcp token", { requestId, userId });
+    console.warn("[user-agent] missing personal mcp token", {
+      requestId,
+      userId,
+    });
     throw new Error("Personal OS MCP token is missing from request context.");
   }
 
@@ -146,7 +188,9 @@ async function personalMcpFetch({
     isObjectRecord(responseBody.error) &&
     typeof responseBody.error.message === "string"
   ) {
-    throw new Error(`Personal OS MCP tool failed: ${responseBody.error.message}`);
+    throw new Error(
+      `Personal OS MCP tool failed: ${responseBody.error.message}`,
+    );
   }
 
   return isObjectRecord(responseBody) && "result" in responseBody
@@ -172,7 +216,11 @@ function formatPersonalMcpResult(toolName: string, result: unknown) {
 }
 
 function formatPersonalMcpResultText(toolName: string, result: unknown) {
-  if (toolName === "listPersonalApps" && isObjectRecord(result) && Array.isArray(result.apps)) {
+  if (
+    toolName === "listPersonalApps" &&
+    isObjectRecord(result) &&
+    Array.isArray(result.apps)
+  ) {
     if (result.apps.length === 0) {
       return "I see no installed apps for this user.";
     }
@@ -210,6 +258,19 @@ function readRequestContextValue(context: ToolExecutionContext, key: string) {
   }
 
   return undefined;
+}
+
+function readRequestContextStringArray(
+  context: ToolExecutionContext,
+  key: string,
+) {
+  const value = readRequestContextValue(context, key);
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is string => typeof item === "string");
 }
 
 function parseJson(rawBody: string) {
