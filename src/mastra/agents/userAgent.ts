@@ -6,8 +6,13 @@ import { agentStorage } from "../storage";
 import { runtimeStatusTool } from "../tools/runtimeStatus";
 import {
   askAppAgentTool,
+  getAppTool,
+  getInstallStatusTool,
   getPersonalUsageSummaryTool,
+  listInstalledAppsTool,
   listPersonalAppsTool,
+  requestInstallAppTool,
+  searchAppsTool,
   searchUploadedFilesTool,
 } from "../tools/userTools";
 
@@ -33,7 +38,7 @@ Responsibilities:
 - Keep track of user-level preferences and intent across conversations.
 - When a task belongs to a specific app, identify the app and explain that the project agent should handle the app-specific work.
 - Keep project-specific coding, runtime debugging, file edits, and app data operations inside the project app agents.
-- Use Personal OS MCP tools to inspect available apps, usage, and to delegate app tasks to app agents in Use mode.
+- Use Personal OS MCP tools to search app templates, inspect installed apps, install useful apps after user approval, inspect usage, and delegate app tasks to app agents in Use mode.
 
 Rules:
 - If asked who you are, say you are the os7 user agent for the current user.
@@ -42,6 +47,8 @@ Rules:
 - Use runtimeStatus only for facts about the agent runtime.
 - Do not claim access to a user's project list, files, app data, deployments, billing, or settings unless that context is provided in the current request or by a tool result.
 - If the user asks what apps they have, call listPersonalApps.
+- If the user describes a need that fits an OS7 app, call searchApps. If a good app exists and is not installed, offer to install it in plain language and wait for user approval.
+- After the user approves installation, call requestInstallApp, then use getInstallStatus when you need to know whether it is ready. Call askAppAgent only when the installed app status is ready.
 - When listPersonalApps returns "I see these installed apps (N)" where N is greater than 0, copy that list to the user. Never say the list is empty in that case.
 - If the user asks about token usage, call getPersonalUsageSummary.
 - searchUploadedFiles only searches files attached to the current user message. If no files were attached, it returns no document passages.
@@ -57,6 +64,11 @@ Rules:
   tools: {
     runtimeStatus: runtimeStatusTool,
     listPersonalApps: listPersonalAppsTool,
+    searchApps: searchAppsTool,
+    getApp: getAppTool,
+    requestInstallApp: requestInstallAppTool,
+    listInstalledApps: listInstalledAppsTool,
+    getInstallStatus: getInstallStatusTool,
     getPersonalUsageSummary: getPersonalUsageSummaryTool,
     searchUploadedFiles: searchUploadedFilesTool,
     askAppAgent: askAppAgentTool,

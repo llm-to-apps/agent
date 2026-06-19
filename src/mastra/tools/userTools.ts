@@ -50,6 +50,124 @@ export const getPersonalUsageSummaryTool = createTool({
   },
 });
 
+export const searchAppsTool = createTool({
+  id: "searchApps",
+  description:
+    "Search OS7 app templates by user intent, category, or free-text query before offering app installation.",
+  inputSchema: z.object({
+    query: z.string().optional(),
+    category: z.string().optional(),
+    intent: z.string().optional(),
+  }),
+  outputSchema: z.any(),
+  toModelOutput: (output) => formatPersonalMcpResult("searchApps", output),
+  execute: async ({ category, intent, query }, context) => {
+    return personalMcpFetch({
+      context: context ?? {},
+      method: "tools/call",
+      params: {
+        name: "apps_search",
+        arguments: {
+          category,
+          intent,
+          query,
+        },
+      },
+    });
+  },
+});
+
+export const getAppTool = createTool({
+  id: "getApp",
+  description: "Get one OS7 app template from the catalog by app id.",
+  inputSchema: z.object({
+    appId: z.string().min(1),
+  }),
+  outputSchema: z.any(),
+  toModelOutput: (output) => formatPersonalMcpResult("getApp", output),
+  execute: async ({ appId }, context) => {
+    return personalMcpFetch({
+      context: context ?? {},
+      method: "tools/call",
+      params: {
+        name: "apps_get",
+        arguments: {
+          appId,
+        },
+      },
+    });
+  },
+});
+
+export const requestInstallAppTool = createTool({
+  id: "requestInstallApp",
+  description:
+    "Request installation of an OS7 app template for the current user. Use after the user agrees to install the app.",
+  inputSchema: z.object({
+    appId: z.string().min(1),
+    reason: z.string().optional(),
+  }),
+  outputSchema: z.any(),
+  toModelOutput: (output) =>
+    formatPersonalMcpResult("requestInstallApp", output),
+  execute: async ({ appId, reason }, context) => {
+    return personalMcpFetch({
+      context: context ?? {},
+      method: "tools/call",
+      params: {
+        name: "apps_request_install",
+        arguments: {
+          appId,
+          reason,
+        },
+      },
+    });
+  },
+});
+
+export const listInstalledAppsTool = createTool({
+  id: "listInstalledApps",
+  description: "List applications already installed for the current OS7 user.",
+  inputSchema: z.object({}),
+  outputSchema: z.any(),
+  toModelOutput: (output) =>
+    formatPersonalMcpResult("listInstalledApps", output),
+  execute: async (_input, context) => {
+    return personalMcpFetch({
+      context: context ?? {},
+      method: "tools/call",
+      params: {
+        name: "apps_list_installed",
+        arguments: {},
+      },
+    });
+  },
+});
+
+export const getInstallStatusTool = createTool({
+  id: "getInstallStatus",
+  description:
+    "Check app installation/deployment status by installed app id or app template id.",
+  inputSchema: z.object({
+    appId: z.string().min(1),
+  }),
+  outputSchema: z.any(),
+  toModelOutput: (output) =>
+    formatPersonalMcpResult("getInstallStatus", output),
+  execute: async ({ appId }, context) => {
+    return personalMcpFetch({
+      context: context ?? {},
+      method: "tools/call",
+      params: {
+        name: "apps_get_install_status",
+        arguments: {
+          appId,
+        },
+      },
+    });
+  },
+});
+
 export const searchUploadedFilesTool = createTool({
   id: "searchUploadedFiles",
   description:
