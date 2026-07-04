@@ -1,6 +1,11 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 
+import {
+  generateSandboxedUiInputSchema,
+  updateSandboxedUiInputSchema,
+} from "./canvasToolSchemas";
+
 type ToolExecutionContext = {
   requestContext?: unknown;
 };
@@ -384,56 +389,7 @@ export const generateSandboxedUiTool = createTool({
   id: "generateSandboxedUi",
   description:
     "Create an OS7 canvas and write a complete sandboxed HTML/CSS/JS document into it. Use this when the user needs a generated interface, not just chat text. If the UI displays app data, retrieve the data first with the relevant tools and embed that data in the HTML as initial JSON state.",
-  inputSchema: z.object({
-    title: z.string().min(1).max(160),
-    mode: z
-      .enum(["static", "dataSnapshot", "interactive"])
-      .optional()
-      .default("static")
-      .describe(
-        "static for UI without app data, dataSnapshot for UI with retrieved app data, interactive for UI that declares host actions.",
-      ),
-    prompt: z
-      .string()
-      .min(1)
-      .max(4000)
-      .describe("Short description of what this generated interface is for."),
-    dataSources: z
-      .array(
-        z.object({
-          name: z.string().min(1).max(120),
-          source: z.enum(["appMcp", "uploadedFiles", "agentContext"]),
-          tool: z.string().min(1).max(160).optional(),
-          input: z.unknown().optional(),
-          data: z.unknown(),
-        }),
-      )
-      .optional()
-      .default([])
-      .describe(
-        "Data snapshots used by the canvas. For app data UIs, include the actual retrieved data and also embed it into the HTML.",
-      ),
-    actions: z
-      .array(
-        z.object({
-          name: z.string().min(1).max(160),
-          description: z.string().min(1).max(500),
-          inputSchema: z.unknown().optional(),
-        }),
-      )
-      .optional()
-      .default([])
-      .describe(
-        "Host actions the iframe UI intends to request later via postMessage. Declare only actions the app can support.",
-      ),
-    html: z
-      .string()
-      .min(1)
-      .max(200_000)
-      .describe(
-        "A complete iframe-ready HTML document with inline CSS and JavaScript. Include doctype, html, head, style, body, and script when useful. External scripts and styles are allowed only from the canvas runtime CSP allowlist. Prefer Tailwind CSS via https://cdn.tailwindcss.com for polished styling, Vue 3 global build via unpkg/jsdelivr for interactive state, and Chart.js via jsdelivr for charts. Default to a light, neutral, operational UI unless the user explicitly asks for dark mode. Do not output .vue files, JSX, TypeScript, npm installs, Vite configs, import maps, or build steps. For dataSnapshot or interactive mode, embed dataSources as initial JSON state inside the document before creating the UI.",
-      ),
-  }),
+  inputSchema: generateSandboxedUiInputSchema,
   outputSchema: z.any(),
   toModelOutput: (output) => formatAgentToolsResult("generateSandboxedUi", output),
   execute: async ({ actions, dataSources, html, mode, prompt, title }) => {
@@ -446,6 +402,25 @@ export const generateSandboxedUiTool = createTool({
       title,
       message:
         "Generated UI tool call accepted. The host runtime will create and persist the canvas.",
+    };
+  },
+});
+
+export const updateSandboxedUiTool = createTool({
+  id: "updateSandboxedUi",
+  description:
+    "Update the currently active OS7 canvas by writing a new complete sandboxed HTML/CSS/JS document version into it. Use this when the user asks to change, refine, or edit the active canvas. Preserve useful existing behavior and data unless the user asks to remove it.",
+  inputSchema: updateSandboxedUiInputSchema,
+  outputSchema: z.any(),
+  toModelOutput: (output) => formatAgentToolsResult("updateSandboxedUi", output),
+  execute: async ({ changeSummary, html, prompt, title }) => {
+    return {
+      changeSummary,
+      htmlLength: html.length,
+      prompt,
+      title,
+      message:
+        "Updated UI tool call accepted. The host runtime will save a new canvas document version.",
     };
   },
 });

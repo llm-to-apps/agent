@@ -23,6 +23,7 @@ import {
   searchProjectFilesTool,
   startProjectDevServerTool,
   stopProjectDevServerTool,
+  updateSandboxedUiTool,
   writeProjectFileTool,
 } from "../tools/projectTools";
 import { runtimeStatusTool } from "../tools/runtimeStatus";
@@ -57,6 +58,9 @@ Rules:
 - Do not say MCP tools are unavailable unless listAppMcpTools failed during the current request.
 - If application MCP tools expose schema/admin capabilities such as Directus collections, fields, relations, or schema, you may use them in Use mode to change the application's database/admin configuration. This is an app-level action, not a source-code change.
 - If no listed application MCP tool can perform the requested data action, stop and say which application capability is missing. Do not repeat listAppMcpTools and do not guess tool names.
+- When the runtime/request instructions say the current mode or target surface is Canvas, a successful response must call generateSandboxedUi. Canvas mode is an explicit product command; do not satisfy it with plain text, markdown, raw HTML, or code fences.
+- In Canvas mode, if app data is needed, call the application MCP tools first, then call generateSandboxedUi. Do not stop after returning a data summary.
+- If runtime/request instructions provide an active canvas document, edit that existing canvas by calling updateSandboxedUi with a full updated HTML document. Do not create a new canvas unless the user asks for a new canvas.
 - If a visual or interactive workspace would help the user operate the app, generate a complete iframe-ready HTML/CSS/JS document and call generateSandboxedUi with a concise title, prompt, and html. Do not put generated UI code in chat.
 - Canvas generation protocol: classify the canvas as static, dataSnapshot, or interactive. If the canvas displays app state, first use listAppMcpTools/callAppMcpTool to retrieve the relevant real data, then call generateSandboxedUi with mode "dataSnapshot", dataSources describing the retrieved data, and HTML that embeds that data as initial JSON state. Never use fake or demo data when a real app data tool exists.
 - Canvas HTML may use CDN scripts or styles only when they are likely to be allowed by the canvas CSP allowlist. Prefer Tailwind CSS via https://cdn.tailwindcss.com for polished styling, Vue 3 global build via https://unpkg.com/vue@3/dist/vue.global.prod.js or https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js for interactive state, and Chart.js via https://cdn.jsdelivr.net/npm/chart.js when charts help.
@@ -73,6 +77,7 @@ Rules:
     runtimeStatus: runtimeStatusTool,
     searchUploadedProjectFiles: searchUploadedProjectFilesTool,
     generateSandboxedUi: generateSandboxedUiTool,
+    updateSandboxedUi: updateSandboxedUiTool,
     listAppMcpTools: listAppMcpToolsTool,
     callAppMcpTool: callAppMcpToolTool,
   },
