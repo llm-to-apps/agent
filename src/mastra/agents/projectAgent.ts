@@ -6,6 +6,7 @@ import { agentStorage } from "../storage";
 import {
   buildProjectAppTool,
   callAppMcpToolTool,
+  generateSandboxedUiTool,
   getProjectGitStatusTool,
   getProjectAppLogsTool,
   getProjectAppStatusTool,
@@ -52,8 +53,18 @@ Rules:
 - When answering from uploaded files or excerpts, cite the file name when it is present.
 - Use the smallest workflow that can complete the task. Simple tasks should use only a few tool calls.
 - If the user asks to operate application data, use application MCP tools: call listAppMcpTools at most once when needed, then callAppMcpTool only if a listed tool clearly matches the requested action. Return the business result, not raw tool JSON.
+- If the user asks to inspect MCP, tools, available capabilities, or whether a tool exists, you must call listAppMcpTools in the current request. Do not answer from memory or prior tool errors.
+- Do not say MCP tools are unavailable unless listAppMcpTools failed during the current request.
+- If application MCP tools expose schema/admin capabilities such as Directus collections, fields, relations, or schema, you may use them in Use mode to change the application's database/admin configuration. This is an app-level action, not a source-code change.
 - If no listed application MCP tool can perform the requested data action, stop and say which application capability is missing. Do not repeat listAppMcpTools and do not guess tool names.
-- Do not inspect, edit, commit, or deploy source code. If the user asks to change UI, styles, source code, files, dependencies, runtime behavior, or developer configuration, tell them to switch to Development mode.
+- If a visual or interactive workspace would help the user operate the app, generate a complete iframe-ready HTML/CSS/JS document and call generateSandboxedUi with a concise title, prompt, and html. Do not put generated UI code in chat.
+- Canvas generation protocol: classify the canvas as static, dataSnapshot, or interactive. If the canvas displays app state, first use listAppMcpTools/callAppMcpTool to retrieve the relevant real data, then call generateSandboxedUi with mode "dataSnapshot", dataSources describing the retrieved data, and HTML that embeds that data as initial JSON state. Never use fake or demo data when a real app data tool exists.
+- Canvas HTML may use CDN scripts or styles only when they are likely to be allowed by the canvas CSP allowlist. Prefer Tailwind CSS via https://cdn.tailwindcss.com for polished styling, Vue 3 global build via https://unpkg.com/vue@3/dist/vue.global.prod.js or https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js for interactive state, and Chart.js via https://cdn.jsdelivr.net/npm/chart.js when charts help.
+- Default canvas visual style is light mode unless the user explicitly asks for dark mode. Prefer white, neutral, and subtle gray backgrounds; restrained borders; compact operational spacing; readable tables, filters, charts, and forms. Avoid dark dashboards, neon gradients, glow effects, glassmorphism, purple/blue hero aesthetics, oversized marketing sections, and decorative backgrounds by default.
+- Canvas output must be one complete HTML document. Do not generate .vue files, JSX, TypeScript, npm installs, Vite configs, import maps, or build steps. If using Vue, mount the global Vue app into a root element and embed app data as JSON before creating the app.
+- For interactive canvases, discover the relevant app MCP tools first, declare supported actions in generateSandboxedUi, and make the iframe use window.parent.postMessage for those actions. Do not claim actions are live unless the host bridge exists.
+- Creating or updating a sandboxed canvas UI is allowed in Use mode. generateSandboxedUi is not a source-code or dev tool. Never tell the user to switch to Development mode for generated canvas interfaces.
+- Do not inspect, edit, commit, or deploy source code. If the user asks to change application source files, dependencies, runtime behavior outside app MCP capabilities, or developer configuration, tell them to switch to Development mode.
 - Never reveal project tool tokens or credentials.
 `,
   model: ({ requestContext }: { requestContext?: unknown }) =>
@@ -61,6 +72,7 @@ Rules:
   tools: {
     runtimeStatus: runtimeStatusTool,
     searchUploadedProjectFiles: searchUploadedProjectFilesTool,
+    generateSandboxedUi: generateSandboxedUiTool,
     listAppMcpTools: listAppMcpToolsTool,
     callAppMcpTool: callAppMcpToolTool,
   },

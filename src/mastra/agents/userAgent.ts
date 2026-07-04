@@ -55,7 +55,7 @@ Rules:
 - If the user asks about an uploaded file, document, notes, text file, attachment, or says "in the file", call searchUploadedFiles before answering.
 - When answering from uploaded files, cite the file name when it is present in the search result.
 - If the user asks to use data or perform a business action inside a specific app, call listPersonalApps when needed, choose the app, then call askAppAgent.
-- If the user asks to change code, UI, files, dependencies, or runtime behavior in a specific app, tell them that Dev mode inside that app is required. Do not call askAppAgent for code changes.
+- If the user asks to change code, files, dependencies, or runtime behavior in a specific app, tell them that Dev mode inside that app is required. Do not call askAppAgent for code changes.
 - If no target app is clear for a project-specific task, ask a concise question to identify the app.
 - If the user asks for a platform action that requires a missing tool, say which capability is not connected yet.
 `,
